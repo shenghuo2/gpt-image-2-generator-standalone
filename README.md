@@ -23,8 +23,8 @@
 | 离线 | [Releases](https://github.com/shenghuo2/gpt-image-2-generator-standalone/releases) 下载 zip，解压后浏览器打开 `index.html` |
 
 > **注意**：无服务端存储，刷新或关闭页面后图片会丢失，请及时保存。
->
-> 如果有帮到你的话，请点个 star :star:
+
+ 如果有帮到你的话，请点个 star 喵 :star: 
 
 ## 背景
 
@@ -61,5 +61,10 @@ npm run build   # 输出在 out/
 
 ## 其他
 
-> 本网站使用 DeepSeek-V4-Pro 快速开发，可能维护性不算太好，请轻点喷（感谢 ds）
+本网站使用 DeepSeek-V4-Pro 快速开发，由于 Vibe coding 可能维护性不算太好，请轻点喷
 
+### 特别感谢
+  
+  本项目是由本人私用的带后端版本硬分叉出来的，动力来源于「比奇鲍」的群友，在此进行感谢
+
+  中转站测试，感谢「猫捉鱼零」的群友提供的一些帮助
