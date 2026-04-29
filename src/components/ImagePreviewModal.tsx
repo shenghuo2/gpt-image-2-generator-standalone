@@ -83,7 +83,7 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
         <div
           className="relative flex flex-col overflow-hidden rounded-2xl shadow-2xl"
-          style={{ width: hasImages ? '90vw' : '520px', maxHeight: '90vh', background: '#fff' }}
+          style={{ width: hasImages ? 'min(95vw, 90vw)' : 'min(95vw, 520px)', maxHeight: '90vh', background: '#fff' }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header bar */}
@@ -109,8 +109,8 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
             </button>
           </div>
 
-          {/* Body: image left + info right */}
-          <div className="flex min-h-0 flex-1 flex-row">
+          {/* Body: image left + info right, stack on mobile */}
+          <div className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-y-auto">
             {hasImages && (
             <div className="relative flex flex-1 items-center justify-center" style={{ background: '#f5f5f5', minHeight: 300 }}>
               <img
@@ -137,7 +137,7 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
             )}
 
             {/* Info panel */}
-            <div className="flex w-72 shrink-0 flex-col gap-3 overflow-y-auto p-4" style={{ background: '#fafafa', borderLeft: hasImages ? '1px solid rgb(0 0 0 / 0.08)' : 'none' }}>
+            <div className="flex w-full lg:w-72 shrink-0 flex-col gap-3 p-4" style={{ background: '#fafafa', borderLeft: hasImages ? '1px solid rgb(0 0 0 / 0.08)' : 'none', borderTop: '1px solid rgb(0 0 0 / 0.05)' }}>
               <p className="text-sm leading-relaxed" style={{ color: '#1a1a1a' }}>{item.prompt}</p>
               <div className="flex gap-2">
                 <button onClick={copyPrompt} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5" style={{ border: '1px solid rgb(0 0 0 / 0.15)', color: '#1a1a1a' }}>
