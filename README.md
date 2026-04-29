@@ -18,8 +18,8 @@
 
 | 方式 | 地址 |
 |------|------|
-| 在线 | **[gpt-image-2-generator-standalone.edgeone.app](https://gpt-image-2-generator-standalone.edgeone.app/)** <br> <sub>EdgeOne Pages · 推荐，可用性高</sub> |
-| 备用 | **[shenghuo2.github.io/gpt-image-2-generator-standalone](https://shenghuo2.github.io/gpt-image-2-generator-standalone/)** <br> <sub>不推荐，GitHub Pages DNS 污染，需魔法上网</sub> |
+| 在线 | **[gpt-image-2-generator-standalone.edgeone.app](https://gpt-image-2-generator-standalone.edgeone.app/)** <br> <sub>EdgeOne Pages · 推荐，三网可用 · [测速对比](docs/speed-test.md)</sub> |
+| 备用 | **[shenghuo2.github.io/gpt-image-2-generator-standalone](https://shenghuo2.github.io/gpt-image-2-generator-standalone/)** <br> <sub>不推荐，GitHub Pages 移动网络 DNS 污染严重</sub> |
 | 离线 | [Releases](https://github.com/shenghuo2/gpt-image-2-generator-standalone/releases) 下载 zip，解压后浏览器打开 `index.html` |
 
 > **注意**：无服务端存储，刷新或关闭页面后图片会丢失，请及时保存。
