@@ -4,3 +4,4 @@ out/
 .env*
 *.md
 !README.md
+!docs/speed-test.md
