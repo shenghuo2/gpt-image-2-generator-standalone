@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faArrowRotateRight, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
+import { faArrowRotateRight, faTriangleExclamation, faTrash } from '@fortawesome/free-solid-svg-icons'
 import type { HistoryItem } from '@/lib/types'
 
 export type ImageJob = {
@@ -21,10 +21,12 @@ export type ImageJob = {
   imageCount?: number
 }
 
+
 interface Props {
   jobs: ImageJob[]
   onRetry: (job: ImageJob) => void
   onCardClick: (item: HistoryItem) => void
+  onDelete: (id: string) => void
   history: HistoryItem[]
 }
 
@@ -98,7 +100,7 @@ function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCou
   )
 }
 
-export function ImageGrid({ jobs, onRetry, onCardClick, history }: Props) {
+export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history }: Props) {
   const [now, setNow] = useState(timestamp())
 
   const running = jobs.some(j => j.status === 'running')
@@ -162,10 +164,16 @@ export function ImageGrid({ jobs, onRetry, onCardClick, history }: Props) {
         return (
         <div
           key={item.id}
-          className="group/card cursor-pointer overflow-hidden rounded-xl border transition-shadow duration-200 hover:shadow-lg"
+          className="group/card relative cursor-pointer overflow-hidden rounded-xl border transition-shadow duration-200 hover:shadow-lg"
           style={{ borderColor: hasImages ? 'rgb(0 0 0 / 0.1)' : 'rgb(234 179 8 / 0.3)', background: hasImages ? '#fff' : '#fffbeb' }}
           onClick={() => onCardClick(item)}
         >
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
+            className="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-red-600"
+          >
+            <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
+          </button>
           {hasImages ? (
             <>
               {item.images.map((url, i) => (

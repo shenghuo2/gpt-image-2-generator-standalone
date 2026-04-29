@@ -14,12 +14,14 @@ import {
   faWandMagicSparkles,
   faXmark,
   faLayerGroup,
+  faTrash,
 } from '@fortawesome/free-solid-svg-icons'
 import { ImageGrid, type ImageJob } from './ImageGrid'
 import { ImagePreviewModal } from './ImagePreviewModal'
 import { RATIO_OPTIONS, simplifyRatio, sizeFromRatio, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
 import { DEFAULTS, loadConfig, saveConfig, type StandaloneConfig } from '@/lib/config'
 import { generateImage, editImage } from '@/lib/api-client'
+import { saveImages, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage } from '@/lib/db'
 import { makeId } from '@/lib/id'
 import type { HistoryItem } from '@/lib/types'
 
@@ -71,7 +73,10 @@ function loadPromptHistory(): HistoryItem[] {
 
 function saveHistory(items: HistoryItem[]) {
   if (typeof window === 'undefined') return
-  const stripped = items.map(({ images, refImages, ...rest }) => ({ ...rest, images: [], refImages: [] }))
+  const stripped = items.map(({ images, ...rest }) => ({
+    ...rest,
+    images: images.length ? new Array(images.length).fill('') : [],
+  }))
   localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(stripped))
 }
 
@@ -94,6 +99,9 @@ export function ImageGenerator() {
   const [draftApiKey, setDraftApiKey] = useState('')
   const [draftBaseUrl, setDraftBaseUrl] = useState('')
   const [showKey, setShowKey] = useState(false)
+  const [maxStorageMB, setMaxStorageMB] = useState(500)
+  const [draftMaxStorageMB, setDraftMaxStorageMB] = useState(500)
+  const [storageUsage, setStorageUsage] = useState(0)
   const refImagesRef = useRef<RefItem[]>([])
   const submittingRef = useRef(false)
 
@@ -139,19 +147,26 @@ export function ImageGenerator() {
     const cfg = loadConfig()
     setApiKey(cfg.apiKey)
     setBaseUrl(cfg.baseUrl)
-    setHistory(loadPromptHistory())
+    setMaxStorageMB(cfg.maxStorageMB)
+    // Load history from localStorage, then restore images from IndexedDB
+    void (async () => {
+      const items = loadPromptHistory()
+      const restored = await Promise.all(items.map(async (item) => {
+        if (item.images) {
+          const count = item.images.length || 10 // fallback for old saves
+          item.images = await loadImages(item.id, count)
+        }
+        if (item.refImageKeys?.length) {
+          const refs = await Promise.all(item.refImageKeys.map(k => loadRefImage(k)))
+          item.refImages = refs.filter((r): r is string => r !== null)
+        }
+        return item
+      }))
+      setHistory(restored)
+      setStorageUsage(await getStorageUsage())
+    })()
   }, [])
 
-  // Warn before refresh/close when there are active jobs or generated images
-  useEffect(() => {
-    const hasContent = jobs.length > 0 || history.some(item => item.images.length > 0)
-    if (!hasContent) return
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-    }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [jobs, history])
 
   const isEditMode = refImages.length > 0
   const autoOptions = useMemo(
@@ -210,6 +225,20 @@ export function ImageGenerator() {
     setJobs(prev => [...prev, ...batch])
     setLoading(true)
 
+    // Save ref images to IndexedDB (deduplicated), snapshot URLs for session display
+    const refImageKeys: string[] = []
+    const refImageUrls: string[] = []
+    if (snap.isEdit) {
+      for (const ref of refImagesRef.current) {
+        try {
+          const blob = await fetch(ref.url).then(r => r.blob())
+          const key = await saveRefImage(blob)
+          refImageKeys.push(key)
+          refImageUrls.push(ref.url)
+        } catch { /* skip */ }
+      }
+    }
+
     // Add history entry immediately (no images yet), save to localStorage
     const promptEntry: HistoryItem = {
       id: snap.batchId,
@@ -222,13 +251,14 @@ export function ImageGenerator() {
         durationSeconds: Math.round((timestamp() - snap.startedAt) / 1000),
       },
       images: [],
+      refImages: refImageUrls.length ? refImageUrls : undefined,
+      refImageKeys: refImageKeys.length ? refImageKeys : undefined,
       type: snap.isEdit ? 'edit' : 'generate',
     }
-    setHistory(prev => {
-      const next = [promptEntry, ...prev.filter(p => p.id !== promptEntry.id)].slice(0, MAX_PROMPTS)
-      saveHistory(next)
-      return next
-    })
+    // Save prompt-only entry to localStorage immediately
+    const entryNoImages = { ...promptEntry, images: [] as string[] }
+    saveHistory([entryNoImages, ...history.filter(p => p.id !== promptEntry.id)].slice(0, MAX_PROMPTS))
+    setHistory(prev => [promptEntry, ...prev.filter(p => p.id !== promptEntry.id)].slice(0, MAX_PROMPTS))
 
     void (async () => {
       const urls: Array<string | null> = Array(batch.length).fill(null)
@@ -254,7 +284,9 @@ export function ImageGenerator() {
       await Promise.all(workers)
 
       const images = urls.filter(Boolean) as string[]
-      // Update the history entry with generated images (or keep as prompt-only on total failure)
+      // Persist generated images to IndexedDB
+      if (images.length) await saveImages(snap.batchId, images)
+      // Update the history entry with generated images and save to localStorage
       setHistory(prev => {
         const next = prev.map(p => {
           if (p.id !== snap.batchId) return p
@@ -264,15 +296,27 @@ export function ImageGenerator() {
             params: { ...p.params, durationSeconds: Math.round((timestamp() - snap.startedAt) / 1000) },
           }
         })
-        saveHistory(next)
+        // Save to localStorage after state update, strip blob URLs but keep count
+        setTimeout(() => saveHistory(next), 0)
         return next
       })
       setJobs(prev => prev.filter(j => !j.id.startsWith(snap.batchId)))
+      setStorageUsage(await getStorageUsage())
     })()
 
     await new Promise(r => setTimeout(r, 100))
     setLoading(false)
     submittingRef.current = false
+  }
+
+  const deleteHistoryItem = async (id: string) => {
+    await deleteImages(id)
+    setHistory(prev => {
+      const next = prev.filter(p => p.id !== id)
+      saveHistory(next)
+      return next
+    })
+    setStorageUsage(await getStorageUsage())
   }
 
   const removeRef = (id: string) => {
@@ -355,7 +399,7 @@ export function ImageGenerator() {
                 onChange={(event) => setPrompt(event.target.value)}
                 onKeyDown={(event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) handleSubmit() }}
                 placeholder="描述你想生成的图片..."
-                className="h-36 w-full resize-none bg-transparent px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20"
+                className="h-36 w-full resize-y bg-transparent px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20"
                 style={{ color: '#1a1a1a' }}
               />
             </div>
@@ -435,21 +479,25 @@ export function ImageGenerator() {
           </div>
         </div>
 
+        <div className="flex items-center justify-between px-4 pt-2 pb-1" style={{ background: '#fff' }}>
+          <span className="text-[10px]" style={{ color: '#919191' }}>纯静态站点，数据均在浏览器本地，无服务端</span>
+          <a href="https://github.com/shenghuo2/gpt-image-2-generator-standalone" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] hover:underline" style={{ color: '#919191' }}>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          源码
+          </a>
+        </div>
         <div className="space-y-3 border-t p-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
           <div className="flex items-center gap-2 text-xs" style={{ color: '#616161' }}>
             <FontAwesomeIcon icon={faLayerGroup} className="h-3 w-3" />
             <span className="truncate">{DEFAULTS.model} · 并发 {concurrency} · {outputSize}</span>
             <button
-              onClick={() => { setDraftApiKey(apiKey); setDraftBaseUrl(baseUrl); setConfigOpen(true) }}
+              onClick={() => { setDraftApiKey(apiKey); setDraftBaseUrl(baseUrl); setDraftMaxStorageMB(maxStorageMB); setConfigOpen(true) }}
               className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150"
               style={{ color: apiKey ? '#616161' : '#d3482b', background: apiKey ? '' : 'rgb(211 72 43 / 0.1)', border: apiKey ? '' : '1px solid rgb(211 72 43 / 0.3)' }}
             >
               <FontAwesomeIcon icon={faGear} className={`${apiKey ? '' : 'animate-pulse'} h-3.5 w-3.5`} />
             </button>
           </div>
-          <p className="rounded-lg px-3 py-2 text-center text-xs font-medium" style={{ background: '#fef3c7', color: '#92400e' }}>
-            无历史存储，刷新后图片丢失，请及时保存
-          </p>
           <button
             onClick={handleSubmit}
             disabled={loading || !hasPrompt || !apiKey}
@@ -467,21 +515,6 @@ export function ImageGenerator() {
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col relative" style={{ background: '#f5f5f5' }}>
-        <a
-          href="https://github.com/shenghuo2/gpt-image-2-generator-standalone"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="absolute top-2 right-4 flex h-8 items-center gap-1.5 rounded-lg px-2.5 transition-colors hover:bg-black/5"
-          style={{ color: '#919191' }}
-          title="GitHub 源码"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-          </svg>
-          <span className="text-[10px] font-medium">源码</span>
-        </a>
-        <span className="absolute top-2 left-1/2 -translate-x-1/2 text-xs select-none pointer-events-none whitespace-nowrap" style={{ color: '#616161' }}>纯静态站点，密钥与请求均在浏览器本地，无服务器存储</span>
-        <span className="absolute bottom-3 right-4 text-[10px] select-none pointer-events-none" style={{ color: 'rgb(0 0 0 / 0.08)' }}>shenghuo2 使用 DeepSeek 制作</span>
         <div className="flex-1 overflow-y-auto p-6">
           {jobs.length === 0 && visibleHistory.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 text-center" style={{ color: '#616161' }}>
@@ -507,21 +540,37 @@ export function ImageGenerator() {
                     updateJob(job.id, { status: 'error', error: error instanceof Error ? error.message : '未知错误' })
                   }
                 })()
-              }} onCardClick={setPreview} history={visibleHistory} />
+              }} onCardClick={setPreview} onDelete={deleteHistoryItem} history={visibleHistory} />
             </div>
           )}
         </div>
       </main>
 
+      <span className="fixed bottom-3 right-4 text-[10px] select-none pointer-events-none z-30" style={{ color: 'rgb(0 0 0 / 0.08)' }}>@shenghuo2 使用 DeepSeek 制作</span>
+
       <ImagePreviewModal
         item={preview}
         onClose={() => setPreview(null)}
-        onReuse={(item) => {
+        onDelete={deleteHistoryItem}
+        onReuse={async (item) => {
           setPrompt(item.prompt)
           setRatio(item.params.ratio)
           setQuality(item.params.quality)
           setCount(item.params.count)
           if (item.params.pixelTier) setPixelTier(item.params.pixelTier)
+          // Restore ref images from IndexedDB
+          if (item.refImageKeys?.length) {
+            clearRefs()
+            const loaded = await Promise.all(item.refImageKeys.map(async (key) => {
+              const url = await loadRefImage(key)
+              if (!url) return null
+              const resp = await fetch(url)
+              const blob = await resp.blob()
+              return new File([blob], 'ref.png', { type: blob.type || 'image/png' })
+            }))
+            const files = loaded.filter((f): f is File => f !== null)
+            if (files.length) addFiles(files)
+          }
         }}
       />
 
@@ -534,7 +583,7 @@ export function ImageGenerator() {
               </div>
               <div>
                 <h2 className="text-base font-semibold" style={{ color: '#1a1a1a' }}>API 设置</h2>
-                <p className={`text-xs rounded-md px-2 py-1 ${!apiKey ? 'font-medium' : ''}`} style={{ color: apiKey ? '#616161' : '#d3482b', background: apiKey ? '' : 'rgb(211 72 43 / 0.06)' }}>纯静态站点，密钥与请求均在浏览器本地，无服务器存储</p>
+                <p className={`text-xs rounded-md px-2 py-1 ${!apiKey ? 'font-medium' : ''}`} style={{ color: apiKey ? '#616161' : '#d3482b', background: apiKey ? '' : 'rgb(211 72 43 / 0.06)' }}>纯静态站点，数据均在浏览器本地，无服务端</p>
               </div>
               <button onClick={() => setConfigOpen(false)} className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg hover:bg-black/10 transition-colors duration-150">
                 <FontAwesomeIcon icon={faXmark} className="h-4 w-4" style={{ color: '#616161' }} />
@@ -568,15 +617,29 @@ export function ImageGenerator() {
                   placeholder="https://nowcoding.ai"
                 />
               </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>最大存储上限 (MB)</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={draftMaxStorageMB}
+                    onChange={(e) => setDraftMaxStorageMB(Math.max(10, Number(e.target.value) || 10))}
+                    type="number" min={10}
+                    className="w-28 h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
+                    style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }}
+                  />
+                  <span className="text-xs" style={{ color: '#919191' }}>当前已用 {(storageUsage / 1024 / 1024).toFixed(1)} MB</span>
+                </div>
+              </label>
             </div>
             <div className="flex items-center justify-end gap-2 border-t px-5 py-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
               <button onClick={() => setConfigOpen(false)} className="rounded-lg px-4 py-2 text-sm hover:bg-black/10 transition-colors duration-150" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>取消</button>
               <button
                 onClick={() => {
-                  const cfg = { apiKey: draftApiKey, baseUrl: draftBaseUrl }
+                  const cfg = { apiKey: draftApiKey, baseUrl: draftBaseUrl, maxStorageMB: draftMaxStorageMB }
                   saveConfig(cfg)
                   setApiKey(cfg.apiKey)
                   setBaseUrl(cfg.baseUrl)
+                  setMaxStorageMB(cfg.maxStorageMB)
                   setConfigOpen(false)
                 }}
                 className="rounded-lg px-4 py-2 text-sm font-medium transition-colors"

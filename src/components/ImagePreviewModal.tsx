@@ -1,13 +1,14 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCopy, faDownload, faRedo, faXmark, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons'
+import { faCopy, faDownload, faRedo, faXmark, faChevronLeft, faChevronRight, faTrash } from '@fortawesome/free-solid-svg-icons'
 import type { HistoryItem } from '@/lib/types'
 
 interface Props {
   item: HistoryItem | null
   onClose: () => void
   onReuse: (item: HistoryItem) => void
+  onDelete: (id: string) => void
 }
 
 function gcd(a: number, b: number): number {
@@ -22,7 +23,7 @@ function ratioLabel(w: number, h: number) {
   return `${w / d}:${h / d}`
 }
 
-export function ImagePreviewModal({ item, onClose, onReuse }: Props) {
+export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
   const [previewRef, setPreviewRef] = useState<string | null>(null)
   const [currentImg, setCurrentImg] = useState(0)
   const [actualSize, setActualSize] = useState<{ w: number; h: number } | null>(null)
@@ -94,10 +95,18 @@ export function ImagePreviewModal({ item, onClose, onReuse }: Props) {
               {hasImages ? `${currentImg + 1} / ${item.images.length}` : '提示词记录'}
             </span>
             {hasImages && (
-              <button onClick={() => download(img!)} className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5" style={{ color: '#616161' }}>
-                <FontAwesomeIcon icon={faDownload} className="h-4 w-4" />
+              <button onClick={() => download(img!)} className="ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors" style={{ background: '#346aea', color: '#fff' }}>
+                <FontAwesomeIcon icon={faDownload} className="h-3 w-3" />下载
               </button>
             )}
+            <button
+              onClick={() => { onDelete(item.id); onClose() }}
+              className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-red-50"
+              style={{ color: '#d3482b' }}
+              title="删除"
+            >
+              <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+            </button>
           </div>
 
           {/* Body: image left + info right */}
@@ -132,10 +141,10 @@ export function ImagePreviewModal({ item, onClose, onReuse }: Props) {
               <p className="text-sm leading-relaxed" style={{ color: '#1a1a1a' }}>{item.prompt}</p>
               <div className="flex gap-2">
                 <button onClick={copyPrompt} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5" style={{ border: '1px solid rgb(0 0 0 / 0.15)', color: '#1a1a1a' }}>
-                  <FontAwesomeIcon icon={faCopy} className="h-3 w-3" />{copyMsg || '复制'}
+                  <FontAwesomeIcon icon={faCopy} className="h-3 w-3" />{copyMsg || '复制提示词'}
                 </button>
                 <button onClick={() => { onReuse(item); onClose() }} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors" style={{ background: '#346aea', color: '#fff' }}>
-                  <FontAwesomeIcon icon={faRedo} className="h-3 w-3" />重复使用
+                  <FontAwesomeIcon icon={faRedo} className="h-3 w-3" />复用提示词
                 </button>
               </div>
               {item.refImages && item.refImages.length > 0 && (

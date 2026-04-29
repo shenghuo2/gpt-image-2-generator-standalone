@@ -1,5 +1,6 @@
 import { DEFAULTS } from './config'
-import type { StandaloneConfig } from './config'
+
+interface ApiAuth { apiKey: string; baseUrl: string }
 
 function b64ToBlobUrl(b64: string) {
   const byteChars = atob(b64)
@@ -21,7 +22,7 @@ function extractImageUrl(data: Record<string, unknown>) {
   throw new Error('供应商没有返回图片')
 }
 
-export async function generateImage(auth: StandaloneConfig, params: { prompt: string; quality: string; size: string }) {
+export async function generateImage(auth: ApiAuth, params: { prompt: string; quality: string; size: string }) {
   const endpoint = `${auth.baseUrl}${DEFAULTS.generatePath}`
   const resp = await fetch(endpoint, {
     method: 'POST',
@@ -47,7 +48,7 @@ export async function generateImage(auth: StandaloneConfig, params: { prompt: st
   return extractImageUrl(await resp.json())
 }
 
-export async function editImage(auth: StandaloneConfig, params: { prompt: string; quality: string; size: string; images: Array<{ file: File }> }) {
+export async function editImage(auth: ApiAuth, params: { prompt: string; quality: string; size: string; images: Array<{ file: File }> }) {
   const endpoint = `${auth.baseUrl}${DEFAULTS.editPath}`
   const form = new FormData()
   form.append('prompt', params.prompt)

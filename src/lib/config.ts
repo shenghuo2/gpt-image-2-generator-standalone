@@ -13,18 +13,20 @@ const STORAGE_KEY = 'gpt-image-standalone-config'
 interface StandaloneConfig {
   apiKey: string
   baseUrl: string
+  maxStorageMB: number
 }
 
 function loadConfig(): StandaloneConfig {
-  if (typeof window === 'undefined') return { apiKey: '', baseUrl: 'https://nowcoding.ai' }
+  if (typeof window === 'undefined') return { apiKey: '', baseUrl: 'https://nowcoding.ai', maxStorageMB: 500 }
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
     return {
       apiKey: saved.apiKey || '',
       baseUrl: saved.baseUrl || 'https://nowcoding.ai',
+      maxStorageMB: Number(saved.maxStorageMB) || 500,
     }
   } catch {
-    return { apiKey: '', baseUrl: 'https://nowcoding.ai' }
+    return { apiKey: '', baseUrl: 'https://nowcoding.ai', maxStorageMB: 500 }
   }
 }
 

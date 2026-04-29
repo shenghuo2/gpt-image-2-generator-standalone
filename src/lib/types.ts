@@ -7,6 +7,7 @@ export interface HistoryItem {
   params: { ratio: AspectRatio; quality: Quality; count: number; pixelTier?: PixelTier; size?: string; style?: string; durationSeconds?: number; provider?: Pick<ProviderSettings, 'providerName' | 'model' | 'baseUrl'> }
   images: string[]
   refImages?: string[]
+  refImageKeys?: string[]
   type: 'generate' | 'edit'
 }
 
