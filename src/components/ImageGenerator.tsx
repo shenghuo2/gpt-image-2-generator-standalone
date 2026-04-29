@@ -142,6 +142,17 @@ export function ImageGenerator() {
     setHistory(loadPromptHistory())
   }, [])
 
+  // Warn before refresh/close when there are active jobs or generated images
+  useEffect(() => {
+    const hasContent = jobs.length > 0 || history.some(item => item.images.length > 0)
+    if (!hasContent) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [jobs, history])
+
   const isEditMode = refImages.length > 0
   const autoOptions = useMemo(
     () => refImages
