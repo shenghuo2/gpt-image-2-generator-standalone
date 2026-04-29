@@ -1,0 +1,172 @@
+'use client'
+import { useState, useEffect } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCopy, faDownload, faRedo, faXmark, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons'
+import type { HistoryItem } from '@/lib/types'
+
+interface Props {
+  item: HistoryItem | null
+  onClose: () => void
+  onReuse: (item: HistoryItem) => void
+}
+
+function gcd(a: number, b: number): number {
+  while (b) { [a, b] = [b, a % b] }
+  return a
+}
+
+const QUALITY_CN: Record<string, string> = { auto: '自动', low: '低', medium: '中', high: '高', standard: '标准', hd: '高清' }
+
+function ratioLabel(w: number, h: number) {
+  const d = gcd(w, h)
+  return `${w / d}:${h / d}`
+}
+
+export function ImagePreviewModal({ item, onClose, onReuse }: Props) {
+  const [previewRef, setPreviewRef] = useState<string | null>(null)
+  const [currentImg, setCurrentImg] = useState(0)
+  const [actualSize, setActualSize] = useState<{ w: number; h: number } | null>(null)
+
+  const [copyMsg, setCopyMsg] = useState('')
+
+  useEffect(() => { setActualSize(null) }, [currentImg])
+
+  // Clear copy message after 2s
+  useEffect(() => {
+    if (!copyMsg) return
+    const t = setTimeout(() => setCopyMsg(''), 2000)
+    return () => clearTimeout(t)
+  }, [copyMsg])
+
+  if (!item) return null
+
+  const copyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(item.prompt)
+      setCopyMsg('已复制')
+    } catch {
+      // Fallback for HTTP (non-secure context)
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = item.prompt
+        ta.style.position = 'fixed'
+        ta.style.left = '-9999px'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+        setCopyMsg('已复制')
+      } catch {
+        setCopyMsg('复制需要 HTTPS，请手动选中文字复制')
+      }
+    }
+  }
+
+  const download = (url: string) => {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'image.png'
+    a.target = '_blank'
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  const img = item.images[currentImg] || item.images[0]
+  const requestedSize = item.params.size || ''
+  const hasImages = item.images.length > 0
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
+        <div
+          className="relative flex flex-col overflow-hidden rounded-2xl shadow-2xl"
+          style={{ width: hasImages ? '90vw' : '520px', maxHeight: '90vh', background: '#fff' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header bar */}
+          <div className="flex shrink-0 items-center gap-3 border-b px-4 py-3" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
+            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5" style={{ color: '#616161' }}>
+              <FontAwesomeIcon icon={faXmark} className="h-4 w-4" />
+            </button>
+            <span className="text-xs font-medium" style={{ color: '#616161' }}>
+              {hasImages ? `${currentImg + 1} / ${item.images.length}` : '提示词记录'}
+            </span>
+            {hasImages && (
+              <button onClick={() => download(img!)} className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5" style={{ color: '#616161' }}>
+                <FontAwesomeIcon icon={faDownload} className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Body: image left + info right */}
+          <div className="flex min-h-0 flex-1 flex-row">
+            {hasImages && (
+            <div className="relative flex flex-1 items-center justify-center" style={{ background: '#f5f5f5', minHeight: 300 }}>
+              <img
+                src={img}
+                alt=""
+                className="max-h-full max-w-full object-contain"
+                onLoad={(e) => setActualSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+              />
+              {item.images.length > 1 && (
+                <>
+                  <button onClick={() => setCurrentImg((v) => (v - 1 + item.images.length) % item.images.length)}
+                    className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full shadow-md transition-colors hover:bg-white"
+                    style={{ background: 'rgba(255,255,255,0.9)', color: '#1a1a1a' }}>
+                    <FontAwesomeIcon icon={faChevronLeft} className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => setCurrentImg((v) => (v + 1) % item.images.length)}
+                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full shadow-md transition-colors hover:bg-white"
+                    style={{ background: 'rgba(255,255,255,0.9)', color: '#1a1a1a' }}>
+                    <FontAwesomeIcon icon={faChevronRight} className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+            )}
+
+            {/* Info panel */}
+            <div className="flex w-72 shrink-0 flex-col gap-3 overflow-y-auto p-4" style={{ background: '#fafafa', borderLeft: hasImages ? '1px solid rgb(0 0 0 / 0.08)' : 'none' }}>
+              <p className="text-sm leading-relaxed" style={{ color: '#1a1a1a' }}>{item.prompt}</p>
+              <div className="flex gap-2">
+                <button onClick={copyPrompt} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5" style={{ border: '1px solid rgb(0 0 0 / 0.15)', color: '#1a1a1a' }}>
+                  <FontAwesomeIcon icon={faCopy} className="h-3 w-3" />{copyMsg || '复制'}
+                </button>
+                <button onClick={() => { onReuse(item); onClose() }} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors" style={{ background: '#346aea', color: '#fff' }}>
+                  <FontAwesomeIcon icon={faRedo} className="h-3 w-3" />重复使用
+                </button>
+              </div>
+              {item.refImages && item.refImages.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {item.refImages.map((refUrl, i) => (
+                    <button key={i} onClick={() => setPreviewRef(refUrl)} className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border transition-colors hover:border-[#346aea]" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
+                      <img src={refUrl} alt="" className="h-full w-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-1.5">
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>{requestedSize ? `请求 ${requestedSize}` : item.params.ratio}</span>
+                {actualSize && (<span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>实际 {actualSize.w}x{actualSize.h} ({ratioLabel(actualSize.w, actualSize.h)})</span>)}
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>质量：{QUALITY_CN[item.params.quality] || item.params.quality}</span>
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>{item.type === 'edit' ? '图生图' : '文生图'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Reference image preview overlay */}
+      {previewRef && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-6" onClick={() => setPreviewRef(null)}>
+          <img src={previewRef} alt="" className="max-h-[90vh] max-w-full rounded-lg object-contain" onClick={(e) => e.stopPropagation()} />
+          <button onClick={() => setPreviewRef(null)} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" style={{ color: '#fff' }}>
+            <FontAwesomeIcon icon={faXmark} className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+    </>
+  )
+}
