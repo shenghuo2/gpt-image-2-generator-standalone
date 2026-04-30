@@ -1,6 +1,6 @@
 import { DEFAULTS } from './config'
 
-interface ApiAuth { apiKey: string; baseUrl: string }
+interface ApiAuth { apiKey: string; baseUrl: string; supportsResponseFormat?: boolean }
 
 function b64ToBlobUrl(b64: string) {
   const byteChars = atob(b64)
@@ -24,20 +24,21 @@ function extractImageUrl(data: Record<string, unknown>) {
 
 export async function generateImage(auth: ApiAuth, params: { prompt: string; quality: string; size: string }) {
   const endpoint = `${auth.baseUrl}${DEFAULTS.generatePath}`
+  const body: Record<string, unknown> = {
+    model: DEFAULTS.model,
+    prompt: params.prompt,
+    n: 1,
+    size: params.size,
+    quality: params.quality,
+  }
+  if (auth.supportsResponseFormat !== false) body.response_format = 'b64_json'
   const resp = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${auth.apiKey}`,
     },
-    body: JSON.stringify({
-      model: DEFAULTS.model,
-      prompt: params.prompt,
-      n: 1,
-      size: params.size,
-      quality: params.quality,
-      response_format: 'b64_json',
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!resp.ok) {
@@ -56,7 +57,7 @@ export async function editImage(auth: ApiAuth, params: { prompt: string; quality
   form.append('size', params.size)
   form.append('quality', params.quality)
   form.append('n', '1')
-  form.append('response_format', 'b64_json')
+  if (auth.supportsResponseFormat !== false) form.append('response_format', 'b64_json')
   params.images.forEach((img, i) => form.append(i === 0 ? 'image' : 'images', img.file))
 
   const resp = await fetch(endpoint, {

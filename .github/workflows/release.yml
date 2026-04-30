@@ -56,7 +56,7 @@ jobs:
             changelog "📝 Docs" --grep='^docs'
             changelog "🧰 Maintenance" --grep='^ci' --grep='^chore' --grep='^refactor'
             # Catch-all: commits not matched by any category above
-            local rest=$(git log "$RANGE" --pretty=format:'- %s (%h)' --no-merges --invert-grep --grep='^feat' --grep='^fix' --grep='^docs' --grep='^ci' --grep='^chore' --grep='^refactor')
+            rest=$(git log "$RANGE" --pretty=format:'- %s (%h)' --no-merges --invert-grep --grep='^feat' --grep='^fix' --grep='^docs' --grep='^ci' --grep='^chore' --grep='^refactor')
             if [ -n "$rest" ]; then
               echo "## 其他"
               echo "$rest"
