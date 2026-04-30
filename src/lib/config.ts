@@ -22,6 +22,7 @@ export interface StandaloneConfig {
   providers: ProviderEntry[]
   activeProviderId: string
   maxStorageMB: number
+  maxHistoryItems: number
 }
 
 export const BUILTIN_PROVIDERS: ProviderEntry[] = [
@@ -36,6 +37,7 @@ function createDefaultConfig(): StandaloneConfig {
     providers: BUILTIN_PROVIDERS.map(p => ({ ...p })),
     activeProviderId: BUILTIN_PROVIDERS[0].id,
     maxStorageMB: 500,
+    maxHistoryItems: 300,
   }
 }
 
@@ -87,6 +89,7 @@ export function loadConfig(): StandaloneConfig {
       }
       merged.activeProviderId = raw.activeProviderId as string
       merged.maxStorageMB = typeof raw.maxStorageMB === 'number' ? raw.maxStorageMB : 500
+      merged.maxHistoryItems = typeof raw.maxHistoryItems === 'number' ? raw.maxHistoryItems : 300
       return merged
     }
     return createDefaultConfig()
@@ -106,3 +109,18 @@ export function getActiveProvider(config: StandaloneConfig): ProviderEntry {
 }
 
 export { DEFAULTS, CUSTOM_PROVIDER_ID }
+
+const LS_QUOTA_BYTES = 5 * 1024 * 1024
+
+export function getLocalStorageUsage(): { usedBytes: number; quotaBytes: number } {
+  if (typeof window === 'undefined') return { usedBytes: 0, quotaBytes: LS_QUOTA_BYTES }
+  let usedBytes = 0
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key) {
+      const val = localStorage.getItem(key) || ''
+      usedBytes += (key.length + val.length) * 2
+    }
+  }
+  return { usedBytes, quotaBytes: LS_QUOTA_BYTES }
+}

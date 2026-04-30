@@ -8,13 +8,15 @@ interface Props {
   draftProviders: ProviderEntry[]; setDraftProviders: (v: ProviderEntry[]) => void
   draftActiveId: string; setDraftActiveId: (v: string) => void
   draftMaxStorageMB: number; setDraftMaxStorageMB: (v: number) => void
+  draftMaxHistoryItems: number; setDraftMaxHistoryItems: (v: number) => void
+  historyCount: number; localStorageUsage: { usedBytes: number; quotaBytes: number }; imageCount: number
   showKey: boolean; setShowKey: (v: boolean) => void
   storageUsage: number
   setGuideOpen: (v: boolean) => void
   onClose: () => void; onSave: () => void
 }
 
-export function ConfigModal({ activeProvider, draftProviders, setDraftProviders, draftActiveId, setDraftActiveId, draftMaxStorageMB, setDraftMaxStorageMB, showKey, setShowKey, storageUsage, setGuideOpen, onClose, onSave }: Props) {
+export function ConfigModal({ activeProvider, draftProviders, setDraftProviders, draftActiveId, setDraftActiveId, draftMaxStorageMB, setDraftMaxStorageMB, draftMaxHistoryItems, setDraftMaxHistoryItems, historyCount, localStorageUsage, imageCount, showKey, setShowKey, storageUsage, setGuideOpen, onClose, onSave }: Props) {
   const apiKey = activeProvider.apiKey
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
@@ -133,10 +135,20 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
           <label className="block">
             <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>最大存储上限 (MB)</span>
             <div className="flex items-center gap-2">
-              <input value={draftMaxStorageMB} onChange={(e) => setDraftMaxStorageMB(Math.max(10, Number(e.target.value) || 10))} type="number" min={10}
+              <input value={draftMaxStorageMB || ''} onChange={(e) => setDraftMaxStorageMB(Number(e.target.value) || 0)} onBlur={() => setDraftMaxStorageMB(Math.max(10, draftMaxStorageMB))} type="number" min={10}
                 className="w-28 h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                 style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
-              <span className="text-xs" style={{ color: '#919191' }}>当前已用 {(storageUsage / 1024 / 1024).toFixed(1)} MB</span>
+              <span className="text-xs" style={{ color: '#919191' }}>当前已用 {(storageUsage / 1024 / 1024).toFixed(1)} MB · {imageCount} 张图片</span>
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>最大历史条数</span>
+            <div className="flex items-center gap-2">
+              <input value={draftMaxHistoryItems || ''} onChange={(e) => setDraftMaxHistoryItems(Math.min(500, Number(e.target.value) || 0))} onBlur={() => setDraftMaxHistoryItems(Math.max(10, draftMaxHistoryItems))} type="number" min={10} max={500}
+                className="w-28 h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
+                style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
+              <span className="text-xs" style={{ color: '#919191' }}>当前 {historyCount} 条 · 占用 {(localStorageUsage.usedBytes / 1024).toFixed(1)} KB / {(localStorageUsage.quotaBytes / 1024 / 1024).toFixed(1)} MB</span>
             </div>
           </label>
         </div>

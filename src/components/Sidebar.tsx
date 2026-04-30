@@ -44,6 +44,8 @@ interface Props {
   draftProviders: ProviderEntry[]; setDraftProviders: (v: ProviderEntry[]) => void
   draftActiveId: string; setDraftActiveId: (v: string) => void
   maxStorageMB: number; draftMaxStorageMB: number; setDraftMaxStorageMB: (v: number) => void
+  maxHistoryItems: number; draftMaxHistoryItems: number; setDraftMaxHistoryItems: (v: number) => void
+  historyCount: number; localStorageUsage: { usedBytes: number; quotaBytes: number }; imageCount: number
   showKey: boolean; setShowKey: (v: boolean) => void
   storageUsage: number
   guideOpen: boolean; setGuideOpen: (v: boolean) => void
@@ -58,6 +60,8 @@ export function Sidebar({
   configOpen, setConfigOpen, providers, activeProviderId,
   draftProviders, setDraftProviders, draftActiveId, setDraftActiveId,
   maxStorageMB, draftMaxStorageMB, setDraftMaxStorageMB,
+  maxHistoryItems, draftMaxHistoryItems, setDraftMaxHistoryItems,
+  historyCount, localStorageUsage, imageCount,
   showKey, setShowKey, storageUsage, guideOpen, setGuideOpen, onSaveConfig,
 }: Props) {
   const [dragIdx, setDragIdx] = useState<number | null>(null)
@@ -196,7 +200,7 @@ export function Sidebar({
           <FontAwesomeIcon icon={faLayerGroup} className="h-3 w-3" />
           <span className="truncate">{activeProvider.name} · {DEFAULTS.model} · 并发 {concurrency} · {outputSize}</span>
           <button
-            onClick={() => { setDraftProviders(providers.map(p => ({ ...p }))); setDraftActiveId(activeProviderId); setDraftMaxStorageMB(maxStorageMB); setConfigOpen(true) }}
+            onClick={() => { setDraftProviders(providers.map(p => ({ ...p }))); setDraftActiveId(activeProviderId); setDraftMaxStorageMB(maxStorageMB); setDraftMaxHistoryItems(maxHistoryItems); setConfigOpen(true) }}
             className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150"
             style={{ color: apiKey ? '#616161' : '#d3482b', background: apiKey ? '' : 'rgb(211 72 43 / 0.1)', border: apiKey ? '' : '1px solid rgb(211 72 43 / 0.3)' }}
           >
@@ -235,6 +239,8 @@ export function Sidebar({
           draftProviders={draftProviders} setDraftProviders={setDraftProviders}
           draftActiveId={draftActiveId} setDraftActiveId={setDraftActiveId}
           draftMaxStorageMB={draftMaxStorageMB} setDraftMaxStorageMB={setDraftMaxStorageMB}
+          draftMaxHistoryItems={draftMaxHistoryItems} setDraftMaxHistoryItems={setDraftMaxHistoryItems}
+          historyCount={historyCount} localStorageUsage={localStorageUsage} imageCount={imageCount}
           showKey={showKey} setShowKey={setShowKey}
           storageUsage={storageUsage}
           setGuideOpen={setGuideOpen}

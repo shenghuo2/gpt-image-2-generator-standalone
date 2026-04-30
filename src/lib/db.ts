@@ -156,3 +156,14 @@ export async function getAllRefKeys(): Promise<string[]> {
   })
   return keys
 }
+
+export async function getImageCount(): Promise<number> {
+  try {
+    const db = await openDB()
+    return await new Promise<number>((resolve, reject) => {
+      const req = db.transaction(IMAGE_STORE, 'readonly').objectStore(IMAGE_STORE).count()
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error)
+    })
+  } catch { return 0 }
+}

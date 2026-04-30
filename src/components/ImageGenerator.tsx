@@ -1,9 +1,9 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { simplifyRatio, sizeFromRatio, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
-import { DEFAULTS, loadConfig, saveConfig, getActiveProvider, type StandaloneConfig, type ProviderEntry } from '@/lib/config'
+import { DEFAULTS, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, type StandaloneConfig, type ProviderEntry } from '@/lib/config'
 import { generateImage, editImage } from '@/lib/api-client'
-import { saveImages, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage } from '@/lib/db'
+import { saveImages, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage, getImageCount } from '@/lib/db'
 import { makeId } from '@/lib/id'
 import type { HistoryItem, RefItem } from '@/lib/types'
 import { NavBar } from './NavBar'
@@ -16,7 +16,6 @@ function chineseIndex(index: number) {
 }
 
 const PROMPT_HISTORY_KEY = 'gpt-image-prompt-history'
-const MAX_PROMPTS = 50
 
 function loadPromptHistory(): HistoryItem[] {
   if (typeof window === 'undefined') return []
@@ -59,8 +58,12 @@ export function ImageGenerator() {
   const [showKey, setShowKey] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [maxStorageMB, setMaxStorageMB] = useState(() => initialConfig.maxStorageMB)
+  const [maxHistoryItems, setMaxHistoryItems] = useState(() => initialConfig.maxHistoryItems)
   const [draftMaxStorageMB, setDraftMaxStorageMB] = useState(500)
+  const [draftMaxHistoryItems, setDraftMaxHistoryItems] = useState(300)
   const [storageUsage, setStorageUsage] = useState(0)
+  const [imageCount, setImageCount] = useState(0)
+  const [localStorageUsage, setLocalStorageUsage] = useState(() => getLocalStorageUsage())
   const [guideOpen, setGuideOpen] = useState(false)
   const refImagesRef = useRef<RefItem[]>([])
   const submittingRef = useRef(false)
@@ -113,6 +116,8 @@ export function ImageGenerator() {
       }))
       setHistory(restored)
       setStorageUsage(await getStorageUsage())
+      setImageCount(await getImageCount())
+      setLocalStorageUsage(getLocalStorageUsage())
     })()
   }, [])
 
@@ -130,8 +135,8 @@ export function ImageGenerator() {
   }, [autoOptions, ratio])
 
   const activeProvider = useMemo(
-    () => getActiveProvider({ providers, activeProviderId, maxStorageMB }),
-    [providers, activeProviderId, maxStorageMB]
+    () => getActiveProvider({ providers, activeProviderId, maxStorageMB, maxHistoryItems }),
+    [providers, activeProviderId, maxStorageMB, maxHistoryItems]
   )
 
   const outputSize = useMemo(
@@ -192,8 +197,14 @@ export function ImageGenerator() {
       images: [], refImages: refImageUrls.length ? refImageUrls : undefined, refImageKeys: refImageKeys.length ? refImageKeys : undefined, type: snap.isEdit ? 'edit' : 'generate',
     }
     const entryNoImages = { ...promptEntry, images: [] as string[] }
-    saveHistory([entryNoImages, ...history.filter(p => p.id !== promptEntry.id)].slice(0, MAX_PROMPTS))
-    setHistory(prev => [promptEntry, ...prev.filter(p => p.id !== promptEntry.id)].slice(0, MAX_PROMPTS))
+    const allBeforeTruncate = [entryNoImages, ...history.filter(p => p.id !== promptEntry.id)]
+    const truncated = allBeforeTruncate.slice(maxHistoryItems)
+    if (truncated.length) {
+      for (const item of truncated) void deleteImages(item.id)
+    }
+    saveHistory(allBeforeTruncate.slice(0, maxHistoryItems))
+    setLocalStorageUsage(getLocalStorageUsage())
+    setHistory(prev => [promptEntry, ...prev.filter(p => p.id !== promptEntry.id)].slice(0, maxHistoryItems))
 
     void (async () => {
       const urls: Array<string | null> = Array(batch.length).fill(null)
@@ -236,6 +247,8 @@ export function ImageGenerator() {
       })
       setJobs(prev => prev.filter(j => j.id.startsWith(snap.batchId) ? j.status === 'error' : true))
       setStorageUsage(await getStorageUsage())
+      setImageCount(await getImageCount())
+      setLocalStorageUsage(getLocalStorageUsage())
     })()
 
     await new Promise(r => setTimeout(r, 1000))
@@ -247,6 +260,8 @@ export function ImageGenerator() {
     await deleteImages(id)
     setHistory(prev => { const next = prev.filter(p => p.id !== id); saveHistory(next); return next })
     setStorageUsage(await getStorageUsage())
+    setImageCount(await getImageCount())
+    setLocalStorageUsage(getLocalStorageUsage())
   }
 
   const removeRef = (id: string) => {
@@ -269,12 +284,24 @@ export function ImageGenerator() {
     ? (autoOptions[0] ? `${autoOptions[0].title}（${autoOptions[0].subtitle}）` : 'auto')
     : autoOptions.find((option) => option.value === ratio)?.title || ratio
 
+  const warnings = useMemo(() => {
+    const msgs: string[] = []
+    if (storageUsage >= maxStorageMB * 0.9 * 1024 * 1024)
+      msgs.push(`图片存储即将达到上限（${(storageUsage / 1024 / 1024).toFixed(1)} / ${maxStorageMB} MB，共 ${imageCount} 张）`)
+    if (history.length >= maxHistoryItems * 0.9)
+      msgs.push(`历史记录即将达到上限（${history.length} / ${maxHistoryItems} 条），最早的记录将被自动清理`)
+    if (localStorageUsage.usedBytes >= localStorageUsage.quotaBytes * 0.8)
+      msgs.push(`浏览器本地存储空间即将用尽（${(localStorageUsage.usedBytes / 1024).toFixed(0)} KB / ${(localStorageUsage.quotaBytes / 1024 / 1024).toFixed(1)} MB）`)
+    return msgs
+  }, [storageUsage, maxStorageMB, imageCount, history.length, maxHistoryItems, localStorageUsage])
+
   const handleSaveConfig = () => {
-    const cfg: StandaloneConfig = { providers: draftProviders, activeProviderId: draftActiveId, maxStorageMB: draftMaxStorageMB }
+    const cfg: StandaloneConfig = { providers: draftProviders, activeProviderId: draftActiveId, maxStorageMB: draftMaxStorageMB, maxHistoryItems: draftMaxHistoryItems }
     saveConfig(cfg)
     setProviders(cfg.providers)
     setActiveProviderId(cfg.activeProviderId)
     setMaxStorageMB(cfg.maxStorageMB)
+    setMaxHistoryItems(cfg.maxHistoryItems)
     setConfigOpen(false)
   }
 
@@ -311,6 +338,8 @@ export function ImageGenerator() {
           draftProviders={draftProviders} setDraftProviders={setDraftProviders}
           draftActiveId={draftActiveId} setDraftActiveId={setDraftActiveId}
           maxStorageMB={maxStorageMB} draftMaxStorageMB={draftMaxStorageMB} setDraftMaxStorageMB={setDraftMaxStorageMB}
+          maxHistoryItems={maxHistoryItems} draftMaxHistoryItems={draftMaxHistoryItems} setDraftMaxHistoryItems={setDraftMaxHistoryItems}
+          historyCount={history.length} localStorageUsage={localStorageUsage} imageCount={imageCount}
           showKey={showKey} setShowKey={setShowKey}
           storageUsage={storageUsage}
           guideOpen={guideOpen} setGuideOpen={setGuideOpen}
@@ -329,6 +358,7 @@ export function ImageGenerator() {
           setPrompt={setPrompt} setRatio={setRatio}
           setQuality={setQuality} setCount={setCount}
           setPixelTier={setPixelTier}
+          warnings={warnings}
         />
       </div>
 

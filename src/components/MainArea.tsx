@@ -1,6 +1,6 @@
 'use client'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faImages } from '@fortawesome/free-solid-svg-icons'
+import { faImages, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
 import { ImageGrid, type ImageJob } from './ImageGrid'
 import { ImagePreviewModal } from './ImagePreviewModal'
 import { generateImage, editImage } from '@/lib/api-client'
@@ -27,11 +27,22 @@ interface Props {
   setQuality: (v: Quality) => void
   setCount: (v: number) => void
   setPixelTier: (v: PixelTier) => void
+  warnings: string[]
 }
 
-export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier }: Props) {
+export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings }: Props) {
   return (
     <main className="flex min-w-0 flex-1 flex-col relative" style={{ background: '#f5f5f5' }}>
+      {warnings.length > 0 && (
+        <div className="flex flex-col gap-2 px-6 pt-4">
+          {warnings.map((msg, i) => (
+            <div key={i} className="flex items-center gap-2.5 rounded-xl px-4 py-2.5" style={{ background: 'rgb(211 72 43 / 0.08)', border: '1px solid rgb(211 72 43 / 0.2)' }}>
+              <FontAwesomeIcon icon={faTriangleExclamation} className="h-3.5 w-3.5 shrink-0" style={{ color: '#d3482b' }} />
+              <span className="text-xs" style={{ color: '#d3482b' }}>{msg}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-6">
         {jobs.length === 0 && visibleHistory.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center" style={{ color: '#616161' }}>
