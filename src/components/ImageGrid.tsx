@@ -188,7 +188,18 @@ export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history }: Pro
               <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} />
             </>
           ) : (
-            <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} />
+            <>
+              {item.error && (
+                <div className="flex flex-col items-center gap-2 px-4 py-6 text-center" style={{ background: '#f5f5f5' }}>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgb(211 72 43 / 0.1)', color: '#d3482b' }}>
+                    <FontAwesomeIcon icon={faTriangleExclamation} className="h-3.5 w-3.5" />
+                  </div>
+                  <p className="text-xs font-medium" style={{ color: '#d3482b' }}>生成失败</p>
+                  <p className="line-clamp-2 text-[11px]" style={{ color: '#616161' }}>{item.error}</p>
+                </div>
+              )}
+              <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} />
+            </>
           )}
         </div>
       )})}

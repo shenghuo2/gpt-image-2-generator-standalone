@@ -262,6 +262,7 @@ export function ImageGenerator() {
 
     void (async () => {
       const urls: Array<string | null> = Array(batch.length).fill(null)
+      const errors: string[] = []
       let cursor = 0
       const workers = Array.from({ length: snap.concurrency }, async () => {
         while (cursor < batch.length) {
@@ -277,7 +278,11 @@ export function ImageGenerator() {
             updateJob(job.id, { status: 'success', url })
             urls[job.index] = url
           } catch (error) {
-            updateJob(job.id, { status: 'error', error: error instanceof Error ? error.message : '未知错误' })
+            const msg = error instanceof Error ? error.message : '未知错误'
+            const isNetwork = error instanceof TypeError
+            const displayMsg = isNetwork ? `网络连接异常，请检查网络或供应商地址（${msg}）` : msg
+            errors.push(displayMsg)
+            updateJob(job.id, { status: 'error', error: displayMsg })
           }
         }
       })
@@ -286,6 +291,7 @@ export function ImageGenerator() {
       const images = urls.filter(Boolean) as string[]
       // Persist generated images to IndexedDB
       if (images.length) await saveImages(snap.batchId, images)
+      const allFailed = images.length === 0 && errors.length > 0
       // Update the history entry with generated images and save to localStorage
       setHistory(prev => {
         const next = prev.map(p => {
@@ -293,6 +299,7 @@ export function ImageGenerator() {
           return {
             ...p,
             images: images.length ? images : p.images,
+            error: allFailed ? (errors[0] || '全部请求失败') : undefined,
             params: { ...p.params, durationSeconds: Math.round((timestamp() - snap.startedAt) / 1000) },
           }
         })
@@ -300,7 +307,8 @@ export function ImageGenerator() {
         setTimeout(() => saveHistory(next), 0)
         return next
       })
-      setJobs(prev => prev.filter(j => !j.id.startsWith(snap.batchId)))
+      // Keep error jobs visible for retry; remove only success/queued jobs
+      setJobs(prev => prev.filter(j => j.id.startsWith(snap.batchId) ? j.status === 'error' : true))
       setStorageUsage(await getStorageUsage())
     })()
 
@@ -537,7 +545,9 @@ export function ImageGenerator() {
                       : await generateImage(auth, { prompt: job.prompt!, quality, size: outputSize })
                     updateJob(job.id, { status: 'success', url })
                   } catch (error) {
-                    updateJob(job.id, { status: 'error', error: error instanceof Error ? error.message : '未知错误' })
+                    const msg = error instanceof Error ? error.message : '未知错误'
+                    const isNetwork = error instanceof TypeError
+                    updateJob(job.id, { status: 'error', error: isNetwork ? `网络连接异常，请检查网络或供应商地址（${msg}）` : msg })
                   }
                 })()
               }} onCardClick={setPreview} onDelete={deleteHistoryItem} history={visibleHistory} />
