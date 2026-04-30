@@ -12,7 +12,6 @@ export type ImageJob = {
   error?: string
   startedAt?: number
   estimateSeconds: number
-  // Context for rendering history-style cards during generation
   prompt?: string
   ratioLabel?: string
   size?: string

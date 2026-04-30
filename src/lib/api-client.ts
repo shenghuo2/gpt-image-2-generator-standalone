@@ -58,7 +58,7 @@ export async function editImage(auth: ApiAuth, params: { prompt: string; quality
   form.append('quality', params.quality)
   form.append('n', '1')
   if (auth.supportsResponseFormat !== false) form.append('response_format', 'b64_json')
-  params.images.forEach((img, i) => form.append(i === 0 ? 'image' : 'images', img.file))
+  params.images.forEach((img) => form.append('image', img.file))
 
   const resp = await fetch(endpoint, {
     method: 'POST',
