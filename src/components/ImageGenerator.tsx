@@ -352,12 +352,15 @@ export function ImageGenerator() {
     : autoOptions.find((option) => option.value === ratio)?.title || ratio
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col min-h-screen lg:h-screen">
       {/* Top navigation */}
       <nav className="flex h-12 shrink-0 items-center border-b" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.08)' }}>
         <div className="flex items-center gap-2 shrink-0 px-3 lg:w-[400px] lg:px-4">
           <img src="./logo.png" alt="" className="h-5 w-5 rounded" />
-          <span className="text-[13px] font-semibold truncate" style={{ color: '#1a1a1a' }}>shenghuo2的 GPT-image-2 图片生成站</span>
+          <span className="text-[13px] font-semibold truncate" style={{ color: '#1a1a1a' }}>
+            <span className="hidden lg:inline">shenghuo2的 GPT-image-2 图片生成站</span>
+            <span className="lg:hidden">生蚝的生图站</span>
+          </span>
         </div>
         <div className="flex-1 flex items-center min-w-0 gap-2 px-3 lg:px-4">
           <div className="relative w-[120px] lg:w-[220px]">
@@ -368,7 +371,7 @@ export function ImageGenerator() {
               onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery('') }}
               placeholder="过滤历史..."
               className="w-full h-7 rounded-md border text-xs outline-none transition-colors focus:border-[#346aea]"
-              style={{ background: 'rgb(0 0 0 / 0.03)', borderColor: 'rgb(0 0 0 / 0.1)', color: '#1a1a1a', paddingLeft: '1.6rem', paddingRight: '1.75rem' }}
+              style={{ background: 'rgb(0 0 0 / 0.03)', borderColor: 'rgb(0 0 0 / 0.1)', color: '#1a1a1a', paddingLeft: '2rem', paddingRight: '2rem' }}
             />
             {searchQuery && (
               <button
@@ -388,7 +391,7 @@ export function ImageGenerator() {
 
       <div
         className="flex flex-col lg:flex-row lg:overflow-hidden"
-        style={{ flex: 1, minHeight: 0, overflow: 'hidden', background: '#f5f5f5' }}
+        style={{ flex: 1, minHeight: 0, background: '#f5f5f5' }}
         onDragOver={(event) => { event.preventDefault(); setIsDragging(true) }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={(event) => { event.preventDefault(); setIsDragging(false); addFiles(event.dataTransfer.files) }}
