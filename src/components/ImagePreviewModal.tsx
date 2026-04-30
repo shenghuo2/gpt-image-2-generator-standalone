@@ -27,6 +27,13 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
   const [toast, setToast] = useState('')
 
   useEffect(() => {
+    if (!item) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [item, onClose])
+
+  useEffect(() => {
     if (!copyMsg) return
     const t = setTimeout(() => setCopyMsg(''), 2000)
     return () => clearTimeout(t)
@@ -99,7 +106,7 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
         <div
           className="relative flex flex-col overflow-hidden rounded-2xl shadow-2xl"
-          style={{ width: hasImages ? 'min(95vw, 90vw)' : 'min(95vw, 520px)', maxHeight: '90vh', background: '#fff' }}
+          style={{ width: hasImages ? 'min(95vw, 1200px)' : 'min(95vw, 520px)', maxHeight: '90vh', background: '#fff' }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header bar */}

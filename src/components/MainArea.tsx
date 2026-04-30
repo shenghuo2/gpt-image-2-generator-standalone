@@ -33,17 +33,17 @@ interface Props {
 export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings }: Props) {
   return (
     <main className="flex min-w-0 flex-1 flex-col relative" style={{ background: '#f5f5f5' }}>
-      {warnings.length > 0 && (
-        <div className="flex flex-col gap-2 px-6 pt-4">
-          {warnings.map((msg, i) => (
-            <div key={i} className="flex items-center gap-2.5 rounded-xl px-4 py-2.5" style={{ background: 'rgb(211 72 43 / 0.08)', border: '1px solid rgb(211 72 43 / 0.2)' }}>
-              <FontAwesomeIcon icon={faTriangleExclamation} className="h-3.5 w-3.5 shrink-0" style={{ color: '#d3482b' }} />
-              <span className="text-xs" style={{ color: '#d3482b' }}>{msg}</span>
-            </div>
-          ))}
-        </div>
-      )}
       <div className="flex-1 overflow-y-auto p-6">
+        {warnings.length > 0 && (
+          <div className="flex flex-col gap-2 mb-4">
+            {warnings.map((msg, i) => (
+              <div key={i} className="flex items-center gap-2.5 rounded-xl px-4 py-2.5" style={{ background: 'rgb(211 72 43 / 0.08)', border: '1px solid rgb(211 72 43 / 0.2)' }}>
+                <FontAwesomeIcon icon={faTriangleExclamation} className="h-3.5 w-3.5 shrink-0" style={{ color: '#d3482b' }} />
+                <span className="text-xs" style={{ color: '#d3482b' }}>{msg}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {jobs.length === 0 && visibleHistory.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center" style={{ color: '#616161' }}>
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl" style={{ background: 'rgb(0 0 0 / 0.04)' }}>

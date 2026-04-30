@@ -1,4 +1,5 @@
 'use client'
+import { useEffect } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faEye, faEyeSlash, faGear, faKey, faPlus, faXmark, faCircleQuestion } from '@fortawesome/free-solid-svg-icons'
 import { BUILTIN_PROVIDERS, type ProviderEntry } from '@/lib/config'
@@ -18,10 +19,17 @@ interface Props {
 
 export function ConfigModal({ activeProvider, draftProviders, setDraftProviders, draftActiveId, setDraftActiveId, draftMaxStorageMB, setDraftMaxStorageMB, draftMaxHistoryItems, setDraftMaxHistoryItems, historyCount, localStorageUsage, imageCount, showKey, setShowKey, storageUsage, setGuideOpen, onClose, onSave }: Props) {
   const apiKey = activeProvider.apiKey
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
-      <div className="w-full max-w-md overflow-hidden rounded-2xl shadow-2xl" style={{ background: '#fff' }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 border-b px-5 py-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
+      <div className="w-full max-w-md overflow-hidden rounded-2xl shadow-2xl" style={{ background: '#fff', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex shrink-0 items-center gap-3 border-b px-5 py-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: 'rgb(0 0 0 / 0.04)' }}>
             <FontAwesomeIcon icon={faGear} className="h-4 w-4" style={{ color: '#616161' }} />
           </div>
@@ -33,7 +41,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
             <FontAwesomeIcon icon={faXmark} className="h-4 w-4" style={{ color: '#616161' }} />
           </button>
         </div>
-        <div className="space-y-4 p-5">
+        <div className="space-y-4 p-5 overflow-y-auto">
           <button onClick={() => setGuideOpen(true)}
             className="flex w-full items-center gap-2 rounded-xl border px-4 py-3 text-left transition-colors hover:opacity-90"
             style={{ background: 'rgb(52 106 234 / 0.06)', borderColor: 'rgb(52 106 234 / 0.25)' }}
@@ -152,7 +160,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
             </div>
           </label>
         </div>
-        <div className="flex items-center justify-end gap-2 border-t px-5 py-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t px-5 py-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm hover:bg-black/10 transition-colors duration-150" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>取消</button>
           <button onClick={onSave} className="rounded-lg px-4 py-2 text-sm font-medium transition-colors" style={{ background: '#346aea', color: '#fff' }}>保存</button>
         </div>

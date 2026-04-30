@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faChevronDown, faCropSimple,
@@ -66,9 +66,38 @@ export function Sidebar({
 }: Props) {
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [previewRefUrl, setPreviewRefUrl] = useState<string | null>(null)
+  const sizeButtonRef = useRef<HTMLButtonElement>(null)
+  const sizeMenuRef = useRef<HTMLDivElement>(null)
+  const [sizeMenuStyle, setSizeMenuStyle] = useState<React.CSSProperties>({})
+
+  useEffect(() => {
+    if (!previewRefUrl) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewRefUrl(null) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [previewRefUrl])
+
+  useEffect(() => {
+    if (!sizeOpen || !sizeButtonRef.current) return
+    const update = () => {
+      const rect = sizeButtonRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const menuH = sizeMenuRef.current?.offsetHeight || 400
+      const spaceBelow = window.innerHeight - rect.bottom - 8
+      const spaceAbove = rect.top - 8
+      const openAbove = spaceBelow < Math.min(menuH, 300) && spaceAbove > spaceBelow
+      const maxH = openAbove ? spaceAbove : spaceBelow
+      setSizeMenuStyle(openAbove
+        ? { bottom: window.innerHeight - rect.top + 4, left: rect.left, maxHeight: maxH }
+        : { top: rect.bottom + 4, left: rect.left, maxHeight: maxH })
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [sizeOpen])
 
   return (
-    <aside className="flex w-full lg:w-[400px] shrink-0 flex-col lg:overflow-hidden border-b lg:border-b-0 lg:border-r" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
+    <aside className="flex w-full max-h-[70vh] lg:max-h-none lg:w-[400px] shrink-0 flex-col overflow-hidden border-b lg:border-b-0 lg:border-r" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
       <div className="flex-1 overflow-y-auto px-5 pb-4 pt-5 custom-scrollbar">
         {/* Ref images */}
         <div className="mb-6">
@@ -137,7 +166,7 @@ export function Sidebar({
           </div>
 
           <div className="relative flex-1">
-            <button onClick={() => setSizeOpen(!sizeOpen)} className="flex h-10 w-full items-center justify-between rounded-lg px-3 text-sm hover:bg-black/10 transition-colors duration-150" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#1a1a1a' }}>
+            <button ref={sizeButtonRef} onClick={() => setSizeOpen(!sizeOpen)} className="flex h-10 w-full items-center justify-between rounded-lg px-3 text-sm hover:bg-black/10 transition-colors duration-150" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#1a1a1a' }}>
               <span className="inline-flex items-center gap-2 truncate">
                 <FontAwesomeIcon icon={faCropSimple} className="h-3.5 w-3.5" style={{ color: '#616161' }} />
                 <span className="text-xs">{selectedSizeLabel}</span>
@@ -145,7 +174,9 @@ export function Sidebar({
               <FontAwesomeIcon icon={faChevronDown} className="h-2.5 w-2.5" style={{ color: '#616161' }} />
             </button>
             {sizeOpen && (
-              <div className="absolute bottom-12 left-0 z-30 w-[186px] overflow-hidden rounded-xl border bg-white py-1 shadow-2xl" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setSizeOpen(false)} />
+                <div ref={sizeMenuRef} className="fixed z-50 w-[186px] overflow-y-auto rounded-xl border bg-white py-1 shadow-2xl" style={{ borderColor: 'rgb(0 0 0 / 0.1)', ...sizeMenuStyle }}>
                 {(autoOptions.length ? autoOptions : [{ value: 'auto', title: 'auto', subtitle: '自动', ratio: '1:1' }]).map((o) => (
                   <SizeOption key={o.value} title={o.title} subtitle={o.subtitle} onClick={() => { setRatio(o.value); setSizeOpen(false) }} />
                 ))}
@@ -154,6 +185,7 @@ export function Sidebar({
                   <SizeOption key={o.value} title={o.title} subtitle={o.subtitle} onClick={() => { setRatio(o.value); setSizeOpen(false) }} wide={o.w > o.h} />
                 ))}
               </div>
+              </>
             )}
           </div>
 
@@ -189,16 +221,14 @@ export function Sidebar({
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-4 pt-2 pb-1" style={{ background: '#fff' }}>
+      <div className="shrink-0 border-t px-4 pt-2 pb-1" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
         <span className="text-[10px]" style={{ color: '#919191' }}>纯静态站点，数据均在浏览器本地，无服务端</span>
-        <a href="https://github.com/shenghuo2/gpt-image-2-generator-standalone" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] hover:underline" style={{ color: '#919191' }}>
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>源码
-        </a>
       </div>
-      <div className="space-y-3 border-t p-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
+      <div className="shrink-0 space-y-3 border-t p-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
         <div className="flex items-center gap-2 text-xs" style={{ color: '#616161' }}>
-          <FontAwesomeIcon icon={faLayerGroup} className="h-3 w-3" />
-          <span className="truncate">{activeProvider.name} · {DEFAULTS.model} · 并发 {concurrency} · {outputSize}</span>
+          <FontAwesomeIcon icon={faLayerGroup} className="h-3 w-3 shrink-0" />
+          <span className="truncate">{activeProvider.name} · {DEFAULTS.model}</span>
+          <span className="shrink-0 ml-auto text-[10px]" style={{ color: '#919191' }}>并发 {concurrency} · {outputSize}</span>
           <button
             onClick={() => { setDraftProviders(providers.map(p => ({ ...p }))); setDraftActiveId(activeProviderId); setDraftMaxStorageMB(maxStorageMB); setDraftMaxHistoryItems(maxHistoryItems); setConfigOpen(true) }}
             className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150"

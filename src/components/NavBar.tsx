@@ -10,7 +10,7 @@ interface Props {
 export function NavBar({ searchQuery, setSearchQuery }: Props) {
   return (
     <nav className="flex h-12 shrink-0 items-center border-b" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.08)' }}>
-      <div className="flex items-center gap-2 shrink-0 px-3 lg:w-[400px] lg:px-4">
+      <div className="flex items-center gap-2 shrink-0 px-5 lg:w-[400px]">
         <img src="./logo.png" alt="" className="h-5 w-5 rounded" />
         <span className="text-[13px] font-semibold truncate" style={{ color: '#1a1a1a' }}>
           <span className="hidden lg:inline">shenghuo2 的 GPT-image-2 图片生成站</span>
