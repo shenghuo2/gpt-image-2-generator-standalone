@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowRotateRight, faTriangleExclamation, faTrash } from '@fortawesome/free-solid-svg-icons'
 import { QUALITY_CN } from '@/lib/utils'
 import type { HistoryItem } from '@/lib/types'
+import type { MultiImageLayout } from '@/lib/config'
 
 export type ImageJob = {
   id: string
@@ -26,9 +27,10 @@ export type ImageJob = {
 interface Props {
   jobs: ImageJob[]
   onRetry: (job: ImageJob) => void
-  onCardClick: (item: HistoryItem) => void
+  onCardClick: (item: HistoryItem, imageIndex?: number) => void
   onDelete: (id: string) => void
   history: HistoryItem[]
+  multiImageLayout: MultiImageLayout
 }
 
 function formatSeconds(seconds: number) {
@@ -100,7 +102,7 @@ function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCou
   )
 }
 
-export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history }: Props) {
+export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history, multiImageLayout }: Props) {
   const [now, setNow] = useState(() => Date.now())
 
   const running = jobs.some(j => j.status === 'running')
@@ -166,12 +168,14 @@ export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history }: Pro
       ))}
       {history.map((item) => {
         const hasImages = item.images.length > 0
+        const isMulti = hasImages && item.images.length > 1
+        const horizontal = isMulti && multiImageLayout === 'horizontal'
         return (
         <div
           key={item.id}
           className="group/card relative cursor-pointer overflow-hidden rounded-xl border transition-shadow duration-200 hover:shadow-lg"
-          style={{ borderColor: hasImages ? 'rgb(0 0 0 / 0.1)' : 'rgb(234 179 8 / 0.3)', background: hasImages ? '#fff' : '#fffbeb' }}
-          onClick={() => onCardClick(item)}
+          style={{ borderColor: hasImages ? 'rgb(0 0 0 / 0.1)' : 'rgb(234 179 8 / 0.3)', background: hasImages ? '#fff' : '#fffbeb', gridColumn: horizontal ? `span ${Math.min(item.images.length, 3)}` : undefined }}
+          onClick={() => onCardClick(item, 0)}
         >
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
@@ -181,15 +185,20 @@ export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history }: Pro
           </button>
           {hasImages ? (
             <>
-              {item.images.map((url, i) => (
-                <img
-                  loading="lazy"
-                  key={i}
-                  src={url}
-                  alt=""
-                  style={{ width: '100%', height: 'auto', minHeight: 120, display: 'block', background: '#f5f5f5' }}
-                />
-              ))}
+              <div className={horizontal ? 'flex' : ''}>
+                {item.images.map((url, i) => (
+                  <div key={i} className={horizontal ? 'relative min-w-0 flex-1' : ''} style={isMulti && i < item.images.length - 1 ? (horizontal ? { borderRight: '2px solid rgba(255,255,255,0.8)', boxShadow: '2px 0 4px rgba(0,0,0,0.2)' } : { borderBottom: '2px solid rgba(255,255,255,0.8)', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }) : undefined} onClick={horizontal ? (e) => { e.stopPropagation(); onCardClick(item, i) } : undefined}>
+                    <img
+                      loading="lazy"
+                      src={url}
+                      alt=""
+                      style={horizontal
+                        ? { width: '100%', height: 'auto', display: 'block', background: '#f5f5f5', objectFit: 'cover', aspectRatio: '1' }
+                        : { width: '100%', height: 'auto', minHeight: 120, display: 'block', background: '#f5f5f5' }}
+                    />
+                  </div>
+                ))}
+              </div>
               <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} />
             </>
           ) : (

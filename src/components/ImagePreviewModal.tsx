@@ -7,6 +7,7 @@ import type { HistoryItem } from '@/lib/types'
 
 interface Props {
   item: HistoryItem | null
+  initialImageIndex?: number
   onClose: () => void
   onReuse: (item: HistoryItem) => void
   onDelete: (id: string) => void
@@ -17,9 +18,9 @@ function ratioLabel(w: number, h: number) {
   return `${w / d}:${h / d}`
 }
 
-export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
+export function ImagePreviewModal({ item, initialImageIndex = 0, onClose, onReuse, onDelete }: Props) {
   const [previewRef, setPreviewRef] = useState<string | null>(null)
-  const [currentImg, setCurrentImg] = useState(0)
+  const [currentImg, setCurrentImg] = useState(initialImageIndex)
   const [actualSize, setActualSize] = useState<{ w: number; h: number } | null>(null)
 
   const [copyMsg, setCopyMsg] = useState('')

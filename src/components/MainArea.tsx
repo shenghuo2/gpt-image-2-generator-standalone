@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faImages, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
 import { ImageGrid, type ImageJob } from './ImageGrid'
@@ -6,7 +7,7 @@ import { ImagePreviewModal } from './ImagePreviewModal'
 import { generateImage, editImage } from '@/lib/api-client'
 import { loadRefImage } from '@/lib/db'
 import type { HistoryItem } from '@/lib/types'
-import type { ProviderEntry } from '@/lib/config'
+import type { ProviderEntry, MultiImageLayout } from '@/lib/config'
 import type { Quality, PixelTier } from '@/lib/provider-settings'
 
 interface Props {
@@ -28,9 +29,11 @@ interface Props {
   setCount: (v: number) => void
   setPixelTier: (v: PixelTier) => void
   warnings: string[]
+  multiImageLayout: MultiImageLayout
 }
 
-export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings }: Props) {
+export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout }: Props) {
+  const [previewImageIndex, setPreviewImageIndex] = useState(0)
   return (
     <main className="flex min-w-0 flex-1 flex-col relative" style={{ background: '#f5f5f5' }}>
       <div className="flex-1 overflow-y-auto p-6">
@@ -72,13 +75,14 @@ export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, qual
                   updateJob(job.id, { status: 'error', error: isNetwork ? `网络连接异常，请检查网络或供应商地址（${msg}）` : msg })
                 }
               })()
-            }} onCardClick={setPreview} onDelete={deleteHistoryItem} history={visibleHistory} />
+            }} onCardClick={(item, idx) => { setPreviewImageIndex(idx ?? 0); setPreview(item) }} onDelete={deleteHistoryItem} history={visibleHistory} multiImageLayout={multiImageLayout} />
           </div>
         )}
       </div>
 
       <ImagePreviewModal
         item={preview}
+        initialImageIndex={previewImageIndex}
         onClose={() => setPreview(null)}
         onDelete={deleteHistoryItem}
         onReuse={async (item) => {

@@ -7,7 +7,7 @@ import {
   faXmark, faLayerGroup,
 } from '@fortawesome/free-solid-svg-icons'
 import { RATIO_OPTIONS, round16, type PixelTier, type Quality } from '@/lib/provider-settings'
-import { DEFAULTS, type ProviderEntry } from '@/lib/config'
+import { DEFAULTS, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import type { RefItem } from '@/lib/types'
 import { UsageGuide } from './UsageGuide'
 import { ConfigModal } from './ConfigModal'
@@ -46,6 +46,7 @@ interface Props {
   draftActiveId: string; setDraftActiveId: (v: string) => void
   maxStorageMB: number; draftMaxStorageMB: number; setDraftMaxStorageMB: (v: number) => void
   maxHistoryItems: number; draftMaxHistoryItems: number; setDraftMaxHistoryItems: (v: number) => void
+  multiImageLayout: MultiImageLayout; draftMultiImageLayout: MultiImageLayout; setDraftMultiImageLayout: (v: MultiImageLayout) => void
   historyCount: number; localStorageUsage: { usedBytes: number; quotaBytes: number }; imageCount: number
   showKey: boolean; setShowKey: (v: boolean) => void
   storageUsage: number
@@ -62,6 +63,7 @@ export function Sidebar({
   draftProviders, setDraftProviders, draftActiveId, setDraftActiveId,
   maxStorageMB, draftMaxStorageMB, setDraftMaxStorageMB,
   maxHistoryItems, draftMaxHistoryItems, setDraftMaxHistoryItems,
+  multiImageLayout, draftMultiImageLayout, setDraftMultiImageLayout,
   historyCount, localStorageUsage, imageCount,
   showKey, setShowKey, storageUsage, guideOpen, setGuideOpen, onSaveConfig,
 }: Props) {
@@ -266,7 +268,7 @@ export function Sidebar({
           <span className="truncate">{activeProvider.name} · {DEFAULTS.model}</span>
           <span className="shrink-0 ml-auto text-[10px]" style={{ color: '#919191' }}>并发 {concurrency} · {outputSize}</span>
           <button
-            onClick={() => { setDraftProviders(providers.map(p => ({ ...p }))); setDraftActiveId(activeProviderId); setDraftMaxStorageMB(maxStorageMB); setDraftMaxHistoryItems(maxHistoryItems); setConfigOpen(true) }}
+            onClick={() => { setDraftProviders(providers.map(p => ({ ...p }))); setDraftActiveId(activeProviderId); setDraftMaxStorageMB(maxStorageMB); setDraftMaxHistoryItems(maxHistoryItems); setDraftMultiImageLayout(multiImageLayout); setConfigOpen(true) }}
             className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150"
             style={{ color: apiKey ? '#616161' : '#d3482b', background: apiKey ? '' : 'rgb(211 72 43 / 0.1)', border: apiKey ? '' : '1px solid rgb(211 72 43 / 0.3)' }}
           >
@@ -306,6 +308,7 @@ export function Sidebar({
           draftActiveId={draftActiveId} setDraftActiveId={setDraftActiveId}
           draftMaxStorageMB={draftMaxStorageMB} setDraftMaxStorageMB={setDraftMaxStorageMB}
           draftMaxHistoryItems={draftMaxHistoryItems} setDraftMaxHistoryItems={setDraftMaxHistoryItems}
+          draftMultiImageLayout={draftMultiImageLayout} setDraftMultiImageLayout={setDraftMultiImageLayout}
           historyCount={historyCount} localStorageUsage={localStorageUsage} imageCount={imageCount}
           showKey={showKey} setShowKey={setShowKey}
           storageUsage={storageUsage}

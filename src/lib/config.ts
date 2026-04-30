@@ -18,11 +18,14 @@ export interface ProviderEntry {
   supportsResponseFormat: boolean
 }
 
+export type MultiImageLayout = 'horizontal' | 'vertical'
+
 export interface StandaloneConfig {
   providers: ProviderEntry[]
   activeProviderId: string
   maxStorageMB: number
   maxHistoryItems: number
+  multiImageLayout: MultiImageLayout
 }
 
 export const BUILTIN_PROVIDERS: ProviderEntry[] = [
@@ -38,6 +41,7 @@ function createDefaultConfig(): StandaloneConfig {
     activeProviderId: BUILTIN_PROVIDERS[0].id,
     maxStorageMB: 500,
     maxHistoryItems: 300,
+    multiImageLayout: 'horizontal' as MultiImageLayout,
   }
 }
 
@@ -90,6 +94,7 @@ export function loadConfig(): StandaloneConfig {
       merged.activeProviderId = raw.activeProviderId as string
       merged.maxStorageMB = typeof raw.maxStorageMB === 'number' ? raw.maxStorageMB : 500
       merged.maxHistoryItems = typeof raw.maxHistoryItems === 'number' ? raw.maxHistoryItems : 300
+      merged.multiImageLayout = (raw.multiImageLayout === 'vertical' ? 'vertical' : 'horizontal') as MultiImageLayout
       return merged
     }
     return createDefaultConfig()

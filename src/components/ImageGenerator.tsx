@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { simplifyRatio, sizeFromRatio, validateSize, round16, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
-import { DEFAULTS, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, type StandaloneConfig, type ProviderEntry } from '@/lib/config'
+import { DEFAULTS, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, type StandaloneConfig, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import { generateImage, editImage } from '@/lib/api-client'
 import { saveImages, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage, getImageCount } from '@/lib/db'
 import { makeId } from '@/lib/id'
@@ -60,8 +60,10 @@ export function ImageGenerator() {
   const [searchQuery, setSearchQuery] = useState('')
   const [maxStorageMB, setMaxStorageMB] = useState(() => initialConfig.maxStorageMB)
   const [maxHistoryItems, setMaxHistoryItems] = useState(() => initialConfig.maxHistoryItems)
+  const [multiImageLayout, setMultiImageLayout] = useState<MultiImageLayout>(() => initialConfig.multiImageLayout)
   const [draftMaxStorageMB, setDraftMaxStorageMB] = useState(500)
   const [draftMaxHistoryItems, setDraftMaxHistoryItems] = useState(300)
+  const [draftMultiImageLayout, setDraftMultiImageLayout] = useState<MultiImageLayout>('horizontal')
   const [storageUsage, setStorageUsage] = useState(0)
   const [imageCount, setImageCount] = useState(0)
   const [localStorageUsage, setLocalStorageUsage] = useState(() => getLocalStorageUsage())
@@ -136,8 +138,8 @@ export function ImageGenerator() {
   }, [autoOptions, ratio])
 
   const activeProvider = useMemo(
-    () => getActiveProvider({ providers, activeProviderId, maxStorageMB, maxHistoryItems }),
-    [providers, activeProviderId, maxStorageMB, maxHistoryItems]
+    () => getActiveProvider({ providers, activeProviderId, maxStorageMB, maxHistoryItems, multiImageLayout }),
+    [providers, activeProviderId, maxStorageMB, maxHistoryItems, multiImageLayout]
   )
 
   const outputSize = useMemo(
@@ -300,12 +302,13 @@ export function ImageGenerator() {
   }, [storageUsage, maxStorageMB, imageCount, history.length, maxHistoryItems, localStorageUsage])
 
   const handleSaveConfig = () => {
-    const cfg: StandaloneConfig = { providers: draftProviders, activeProviderId: draftActiveId, maxStorageMB: draftMaxStorageMB, maxHistoryItems: draftMaxHistoryItems }
+    const cfg: StandaloneConfig = { providers: draftProviders, activeProviderId: draftActiveId, maxStorageMB: draftMaxStorageMB, maxHistoryItems: draftMaxHistoryItems, multiImageLayout: draftMultiImageLayout }
     saveConfig(cfg)
     setProviders(cfg.providers)
     setActiveProviderId(cfg.activeProviderId)
     setMaxStorageMB(cfg.maxStorageMB)
     setMaxHistoryItems(cfg.maxHistoryItems)
+    setMultiImageLayout(cfg.multiImageLayout)
     setConfigOpen(false)
   }
 
@@ -344,6 +347,7 @@ export function ImageGenerator() {
           draftActiveId={draftActiveId} setDraftActiveId={setDraftActiveId}
           maxStorageMB={maxStorageMB} draftMaxStorageMB={draftMaxStorageMB} setDraftMaxStorageMB={setDraftMaxStorageMB}
           maxHistoryItems={maxHistoryItems} draftMaxHistoryItems={draftMaxHistoryItems} setDraftMaxHistoryItems={setDraftMaxHistoryItems}
+          multiImageLayout={multiImageLayout} draftMultiImageLayout={draftMultiImageLayout} setDraftMultiImageLayout={setDraftMultiImageLayout}
           historyCount={history.length} localStorageUsage={localStorageUsage} imageCount={imageCount}
           showKey={showKey} setShowKey={setShowKey}
           storageUsage={storageUsage}
@@ -364,6 +368,7 @@ export function ImageGenerator() {
           setQuality={setQuality} setCount={setCount}
           setPixelTier={setPixelTier}
           warnings={warnings}
+          multiImageLayout={multiImageLayout}
         />
       </div>
 

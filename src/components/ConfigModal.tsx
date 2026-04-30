@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faEye, faEyeSlash, faGear, faKey, faPlus, faXmark, faCircleQuestion } from '@fortawesome/free-solid-svg-icons'
-import { BUILTIN_PROVIDERS, type ProviderEntry } from '@/lib/config'
+import { BUILTIN_PROVIDERS, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 
 interface Props {
   activeProvider: ProviderEntry
@@ -10,6 +10,7 @@ interface Props {
   draftActiveId: string; setDraftActiveId: (v: string) => void
   draftMaxStorageMB: number; setDraftMaxStorageMB: (v: number) => void
   draftMaxHistoryItems: number; setDraftMaxHistoryItems: (v: number) => void
+  draftMultiImageLayout: MultiImageLayout; setDraftMultiImageLayout: (v: MultiImageLayout) => void
   historyCount: number; localStorageUsage: { usedBytes: number; quotaBytes: number }; imageCount: number
   showKey: boolean; setShowKey: (v: boolean) => void
   storageUsage: number
@@ -17,7 +18,7 @@ interface Props {
   onClose: () => void; onSave: () => void
 }
 
-export function ConfigModal({ activeProvider, draftProviders, setDraftProviders, draftActiveId, setDraftActiveId, draftMaxStorageMB, setDraftMaxStorageMB, draftMaxHistoryItems, setDraftMaxHistoryItems, historyCount, localStorageUsage, imageCount, showKey, setShowKey, storageUsage, setGuideOpen, onClose, onSave }: Props) {
+export function ConfigModal({ activeProvider, draftProviders, setDraftProviders, draftActiveId, setDraftActiveId, draftMaxStorageMB, setDraftMaxStorageMB, draftMaxHistoryItems, setDraftMaxHistoryItems, draftMultiImageLayout, setDraftMultiImageLayout, historyCount, localStorageUsage, imageCount, showKey, setShowKey, storageUsage, setGuideOpen, onClose, onSave }: Props) {
   const apiKey = activeProvider.apiKey
 
   useEffect(() => {
@@ -159,6 +160,21 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
               <span className="text-xs" style={{ color: '#919191' }}>当前 {historyCount} 条 · 占用 {(localStorageUsage.usedBytes / 1024).toFixed(1)} KB / {(localStorageUsage.quotaBytes / 1024 / 1024).toFixed(1)} MB</span>
             </div>
           </label>
+
+          <div>
+            <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>多图卡片布局</span>
+            <div className="relative flex gap-1 overflow-hidden rounded-lg p-0.5" style={{ background: 'rgb(0 0 0 / 0.04)' }}>
+              <div className="absolute inset-y-0.5 rounded-md transition-all duration-300 ease-out" style={{
+                left: draftMultiImageLayout === 'horizontal' ? '2px' : 'calc(50% + 2px)',
+                width: 'calc(50% - 4px)',
+                background: '#1a1a1a',
+              }} />
+              <button onClick={() => setDraftMultiImageLayout('horizontal')} className="relative h-8 flex-1 rounded-md text-xs font-medium transition-colors duration-150"
+                style={{ color: draftMultiImageLayout === 'horizontal' ? '#fff' : '#616161' }}>横向</button>
+              <button onClick={() => setDraftMultiImageLayout('vertical')} className="relative h-8 flex-1 rounded-md text-xs font-medium transition-colors duration-150"
+                style={{ color: draftMultiImageLayout === 'vertical' ? '#fff' : '#616161' }}>纵向</button>
+            </div>
+          </div>
         </div>
         <div className="flex shrink-0 items-center justify-end gap-2 border-t px-5 py-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm hover:bg-black/10 transition-colors duration-150" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>取消</button>
