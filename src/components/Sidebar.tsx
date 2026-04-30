@@ -18,7 +18,7 @@ type RefItem = {
   height?: number
 }
 
-const QUALITIES: Quality[] = ['auto', 'low', 'medium', 'high']
+const QUALITIES: Quality[] = ['low', 'medium', 'high']
 const QUALITY_LABELS: Record<Quality, string> = {
   auto: '自动', low: '低', medium: '中', high: '高',
   standard: '标准', hd: '高清',
@@ -76,7 +76,7 @@ export function Sidebar({
           </div>
           <button
             onClick={() => document.getElementById('ref-input')?.click()}
-            className="flex h-20 w-20 items-center justify-center gap-1.5 rounded-xl border border-dashed text-xs transition-all duration-200"
+            className="flex h-20 w-20 items-center justify-center gap-1.5 rounded-xl border border-dashed text-xs transition-all duration-200 hover:border-[#346aea] hover:text-[#346aea]"
             style={{ borderColor: 'rgb(0 0 0 / 0.15)', color: '#616161', background: 'rgb(0 0 0 / 0.03)' }}
           >
             <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />添加
@@ -103,7 +103,7 @@ export function Sidebar({
         {/* Prompt */}
         <div className="mb-4">
           <label className="mb-2.5 block text-sm font-medium" style={{ color: '#1a1a1a' }}>提示词</label>
-          <div className="overflow-hidden rounded-xl border transition-colors focus-within:border-[#336aea]" style={{ background: 'rgb(0 0 0 / 0.04)', borderColor: 'rgb(0 0 0 / 0.15)' }}>
+          <div className="overflow-hidden rounded-xl border transition-colors duration-200 focus-within:border-[#346aea] hover:border-black/20" style={{ background: 'rgb(0 0 0 / 0.04)', borderColor: 'rgb(0 0 0 / 0.15)' }}>
             <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit() }}
               placeholder="描述你想生成的图片..."
@@ -145,10 +145,15 @@ export function Sidebar({
             )}
           </div>
 
-          <div className="flex h-10 items-center overflow-hidden rounded-lg" style={{ background: 'rgb(0 0 0 / 0.04)' }}>
+          <div className="relative flex h-10 shrink-0 items-center overflow-hidden rounded-lg" style={{ width: '5.5rem', background: 'rgb(0 0 0 / 0.04)' }}>
+            <div className="absolute inset-y-0.5 rounded-md transition-all duration-300 ease-out" style={{
+              left: `calc(${PIXEL_TIERS.findIndex(t => t.value === pixelTier)} * 100% / 3 + 2px)`,
+              width: `calc(100% / 3 - 4px)`,
+              background: 'rgb(0 0 0 / 0.1)',
+            }} />
             {PIXEL_TIERS.map((tier) => (
-              <button key={tier.value} onClick={() => setPixelTier(tier.value)} className="h-full flex-1 rounded-md px-2.5 text-xs font-medium transition-colors"
-                style={{ background: pixelTier === tier.value ? 'rgb(0 0 0 / 0.1)' : 'transparent', color: '#1a1a1a' }} title={tier.estimate}>{tier.label}</button>
+              <button key={tier.value} onClick={() => setPixelTier(tier.value)} className="relative h-full flex-1 rounded-md text-xs font-medium transition-colors duration-150"
+                style={{ color: pixelTier === tier.value ? '#1a1a1a' : '#919191' }} title={tier.estimate}>{tier.label}</button>
             ))}
           </div>
         </div>
@@ -156,12 +161,18 @@ export function Sidebar({
         {/* Quality */}
         <div className="mb-4">
           <label className="mb-2.5 block text-sm font-medium" style={{ color: '#1a1a1a' }}>质量</label>
-          <div className="flex gap-1 overflow-hidden rounded-lg p-0.5" style={{ background: 'rgb(0 0 0 / 0.04)' }}>
+          <div className="relative flex gap-1 overflow-hidden rounded-lg p-0.5" style={{ background: 'rgb(0 0 0 / 0.04)' }}>
+            <div className="absolute inset-y-0.5 rounded-md transition-all duration-300 ease-out" style={{
+              left: `calc(${QUALITIES.findIndex(q => q === quality)} * 100% / 3 + 2px)`,
+              width: `calc(100% / 3 - 4px)`,
+              background: '#1a1a1a',
+            }} />
             {QUALITIES.map((item) => (
-              <button key={item} onClick={() => setQuality(item)} className="h-8 flex-1 rounded-md text-xs font-medium transition-all"
-                style={{ background: quality === item ? '#1a1a1a' : 'transparent', color: quality === item ? '#fff' : '#616161' }}>{QUALITY_LABELS[item]}</button>
+              <button key={item} onClick={() => setQuality(item)} className="relative h-8 flex-1 rounded-md text-xs font-medium transition-colors duration-150"
+                style={{ color: quality === item ? '#fff' : '#616161' }}>{QUALITY_LABELS[item]}</button>
             ))}
           </div>
+          <p className="mt-2 text-[10px] leading-relaxed" style={{ color: '#bfbfbf' }}>提示词越长、分辨率越高、质量越高，生成等待时间都会更长</p>
         </div>
       </div>
 
@@ -185,10 +196,16 @@ export function Sidebar({
           </button>
         </div>
         <button onClick={handleSubmit} disabled={loading || !hasPrompt || !apiKey}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all"
-          style={{ background: hasPrompt && !loading && apiKey ? '#346aea' : 'rgb(0 0 0 / 0.04)', color: hasPrompt && !loading && apiKey ? '#fff' : '#919191', cursor: hasPrompt && !loading && apiKey ? 'pointer' : 'not-allowed' }}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-[0.97] disabled:active:scale-100"
+          style={{
+            background: hasPrompt && !loading && apiKey ? '#346aea' : 'rgb(0 0 0 / 0.04)',
+            color: hasPrompt && !loading && apiKey ? '#fff' : '#919191',
+            cursor: hasPrompt && !loading && apiKey ? 'pointer' : 'not-allowed',
+            opacity: loading ? 0.8 : 1,
+            transform: loading ? 'scale(0.98)' : undefined,
+          }}
         >
-          <FontAwesomeIcon icon={faWandMagicSparkles} className="h-4 w-4" />
+          <FontAwesomeIcon icon={faWandMagicSparkles} className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           <span>{!apiKey ? '请先配置 API Key' : loading ? '生成中...' : '生成'}</span>
         </button>
       </div>

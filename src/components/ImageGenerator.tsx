@@ -253,7 +253,7 @@ export function ImageGenerator() {
       setStorageUsage(await getStorageUsage())
     })()
 
-    await new Promise(r => setTimeout(r, 100))
+    await new Promise(r => setTimeout(r, 1000))
     setLoading(false)
     submittingRef.current = false
   }

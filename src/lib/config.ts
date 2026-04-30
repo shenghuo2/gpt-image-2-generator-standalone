@@ -4,7 +4,7 @@ const DEFAULTS = {
   editPath: '/v1/images/edits',
   supportsCustomSize: true,
   maxConcurrency: 3,
-  defaultQuality: 'low' as const,
+  defaultQuality: 'medium' as const,
   defaultEstimateSeconds: 60,
 }
 

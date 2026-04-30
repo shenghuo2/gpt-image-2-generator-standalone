@@ -24,9 +24,9 @@ export function NavBar({ searchQuery, setSearchQuery }: Props) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery('') }}
-            placeholder="过滤历史..."
-            className="w-full h-7 rounded-md border text-xs outline-none transition-colors focus:border-[#346aea]"
-            style={{ background: 'rgb(0 0 0 / 0.03)', borderColor: 'rgb(0 0 0 / 0.1)', color: '#1a1a1a', paddingLeft: '2rem', paddingRight: '2rem' }}
+            placeholder="搜索提示词..."
+            className="w-full h-7 rounded-md border text-xs outline-none transition-colors focus:border-[#346aea] pl-9 lg:pl-8 pr-8"
+            style={{ background: 'rgb(0 0 0 / 0.03)', borderColor: 'rgb(0 0 0 / 0.1)', color: '#1a1a1a' }}
           />
           {searchQuery && (
             <button
