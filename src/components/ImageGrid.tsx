@@ -13,6 +13,7 @@ export type ImageJob = {
   startedAt?: number
   estimateSeconds: number
   prompt?: string
+  quality?: string
   ratioLabel?: string
   size?: string
   providerName?: string
@@ -36,10 +37,12 @@ function formatSeconds(seconds: number) {
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
 }
 
-function formatTimeUTC8(ts: number) {
-  const d = new Date(ts + 8 * 3600000)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`
+function formatTime(ts: number) {
+  return new Date(ts).toLocaleString('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  })
 }
 
 interface CardFooterProps {
@@ -92,7 +95,7 @@ function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCou
       {(durationSeconds != null || timestamp != null) && (
         <div className="flex items-center justify-between">
           <span className="text-[10px]" style={{ color: '#919191' }}>{durationSeconds != null ? formatSeconds(durationSeconds) : ''}</span>
-          {timestamp != null && <span className="text-[10px]" style={{ color: '#bfbfbf' }}>{formatTimeUTC8(timestamp)}</span>}
+          {timestamp != null && <span className="text-[10px]" style={{ color: '#bfbfbf' }}>{formatTime(timestamp)}</span>}
         </div>
       )}
     </div>

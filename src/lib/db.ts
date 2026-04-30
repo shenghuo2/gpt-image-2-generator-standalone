@@ -96,19 +96,12 @@ async function sha256Prefix(blob: Blob): Promise<string> {
 export async function saveRefImage(blob: Blob): Promise<string> {
   const key = await sha256Prefix(blob)
   const db = await openDB()
-  const store = db.transaction(REF_STORE, 'readwrite').objectStore(REF_STORE)
-  // Check if already exists
-  const exists = await new Promise<boolean>((resolve, reject) => {
-    const req = store.getKey(key)
-    req.onsuccess = () => resolve(!!req.result)
-    req.onerror = () => reject(req.error)
+  await new Promise<void>((resolve, reject) => {
+    const txn = db.transaction(REF_STORE, 'readwrite')
+    txn.objectStore(REF_STORE).put(blob, key)
+    txn.oncomplete = () => resolve()
+    txn.onerror = () => reject(txn.error)
   })
-  if (!exists) {
-    store.put(blob, key)
-    await new Promise<void>((resolve) => {
-      store.transaction.oncomplete = () => resolve()
-    })
-  }
   return key
 }
 

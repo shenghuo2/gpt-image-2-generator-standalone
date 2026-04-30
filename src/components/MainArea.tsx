@@ -47,13 +47,15 @@ export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, qual
             <ImageGrid jobs={jobs} onRetry={(job) => {
               const isEdit = refImages.length > 0
               const auth = { apiKey: activeProvider.apiKey, baseUrl: activeProvider.baseUrl, supportsResponseFormat: activeProvider.supportsResponseFormat }
+              const jobQuality = job.quality || quality
+              const jobSize = job.size || outputSize
               void (async () => {
                 const startedAt = timestamp()
                 updateJob(job.id, { status: 'running', startedAt, error: undefined })
                 try {
                   const url = isEdit
-                    ? await editImage(auth, { prompt: job.prompt!, quality, size: outputSize, images: refImages as Array<{ file: File }> })
-                    : await generateImage(auth, { prompt: job.prompt!, quality, size: outputSize })
+                    ? await editImage(auth, { prompt: job.prompt!, quality: jobQuality, size: jobSize, images: refImages as Array<{ file: File }> })
+                    : await generateImage(auth, { prompt: job.prompt!, quality: jobQuality, size: jobSize })
                   updateJob(job.id, { status: 'success', url })
                 } catch (error) {
                   const msg = error instanceof Error ? error.message : '未知错误'

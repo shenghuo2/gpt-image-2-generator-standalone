@@ -183,7 +183,7 @@ export function ImageGenerator() {
 
     const batch: ImageJob[] = Array.from({ length: snap.count }, (_, index) => ({
       id: `${snap.batchId}:${index}`, index, status: 'queued' as const, estimateSeconds: snap.estimateSeconds,
-      prompt: snap.prompt,
+      prompt: snap.prompt, quality: snap.quality,
       ratioLabel: snap.ratio !== 'auto' ? snap.ratio : undefined, size: snap.outputSize,
       providerName: activeProvider.name, type: snap.isEdit ? 'edit' : 'generate', imageCount: snap.count,
     }))
