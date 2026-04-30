@@ -1,12 +1,12 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faChevronDown, faCropSimple,
   faGear, faMinus, faPlus, faWandMagicSparkles,
   faXmark, faLayerGroup,
 } from '@fortawesome/free-solid-svg-icons'
-import { RATIO_OPTIONS, round16, type PixelTier, type Quality } from '@/lib/provider-settings'
+import { RATIO_OPTIONS, round16, availableTiersFor, type PixelTier, type Quality } from '@/lib/provider-settings'
 import { DEFAULTS, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import type { RefItem } from '@/lib/types'
 import { UsageGuide } from './UsageGuide'
@@ -73,6 +73,19 @@ export function Sidebar({
   const sizeMenuRef = useRef<HTMLDivElement>(null)
   const [sizeMenuStyle, setSizeMenuStyle] = useState<React.CSSProperties>({})
 
+  const visibleTiers = useMemo(
+    () => ratio === 'custom' || ratio === 'auto' || ratio.startsWith('auto:')
+      ? PIXEL_TIERS
+      : PIXEL_TIERS.filter(t => availableTiersFor(ratio).includes(t.value)),
+    [ratio]
+  )
+
+  useEffect(() => {
+    if (!visibleTiers.some(t => t.value === pixelTier)) {
+      setPixelTier(visibleTiers[visibleTiers.length - 1].value)
+    }
+  }, [visibleTiers, pixelTier, setPixelTier])
+
   useEffect(() => {
     if (!previewRefUrl) return
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewRefUrl(null) }
@@ -105,7 +118,7 @@ export function Sidebar({
         {/* Ref images */}
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-medium" style={{ color: '#1a1a1a' }}>参考图片<span className="text-[10px] font-normal ml-1" style={{ color: '#bfbfbf' }}>（拖拽可改变顺序）</span></span>
+            <span className="text-sm font-medium" style={{ color: '#1a1a1a' }}>参考图片<span className="text-[10px] font-normal ml-1" style={{ color: '#3c3a3a' }}>（拖拽可改变顺序）</span></span>
             <span className="text-xs" style={{ color: '#616161' }}>{refImages.length}/16</span>
           </div>
           <button
@@ -138,7 +151,7 @@ export function Sidebar({
             </div>
           )}
           <input id="ref-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && addFiles(e.target.files)} />
-          <p className="mt-1.5 text-[10px]" style={{ color: '#bfbfbf' }}>支持粘贴 / Ctrl+V / 拖拽添加图片</p>
+          <p className="mt-1.5 text-[10px]" style={{ color: '#3c3a3a' }}>支持粘贴 / Ctrl+V / 拖拽添加图片</p>
           {refImages.length > 0 && (
             <button onClick={clearRefs} className="mt-2 text-xs" style={{ color: '#616161' }}>清空参考图</button>
           )}
@@ -201,17 +214,20 @@ export function Sidebar({
           {ratio !== 'custom' && (
           <div className="relative flex h-10 shrink-0 items-center overflow-hidden rounded-lg" style={{ width: '5.5rem', background: 'rgb(0 0 0 / 0.04)' }}>
             <div className="absolute inset-y-0.5 rounded-md transition-all duration-300 ease-out" style={{
-              left: `calc(${PIXEL_TIERS.findIndex(t => t.value === pixelTier)} * 100% / 3 + 2px)`,
-              width: `calc(100% / 3 - 4px)`,
+              left: `calc(${visibleTiers.findIndex(t => t.value === pixelTier)} * 100% / ${visibleTiers.length} + 2px)`,
+              width: `calc(100% / ${visibleTiers.length} - 4px)`,
               background: 'rgb(0 0 0 / 0.1)',
             }} />
-            {PIXEL_TIERS.map((tier) => (
+            {visibleTiers.map((tier) => (
               <button key={tier.value} onClick={() => setPixelTier(tier.value)} className="relative h-full flex-1 rounded-md text-xs font-medium transition-colors duration-150"
                 style={{ color: pixelTier === tier.value ? '#1a1a1a' : '#919191' }} title={tier.estimate}>{tier.label}</button>
             ))}
           </div>
           )}
         </div>
+        {visibleTiers.length < 3 && ratio !== 'custom' && (
+          <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#d3482b' }}>因最大边长限制（&lt; 3840px），该比例仅支持最高 2K 分辨率</p>
+        )}
 
         {ratio === 'custom' && (
           <div className="mb-4">
@@ -254,7 +270,7 @@ export function Sidebar({
                 style={{ color: quality === item ? '#fff' : '#616161' }}>{QUALITY_LABELS[item]}</button>
             ))}
           </div>
-          <p className="mt-2 text-[10px] leading-relaxed" style={{ color: '#bfbfbf' }}>提示词越长、分辨率越高、质量越高，生成等待时间都会更长</p>
+          <p className="mt-2 text-[10px] leading-relaxed" style={{ color: '#3c3a3a' }}>提示词越长、分辨率越高、质量越高，生成等待时间都会更长</p>
         </div>
       </div>
 

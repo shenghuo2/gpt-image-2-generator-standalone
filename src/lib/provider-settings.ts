@@ -20,7 +20,7 @@ export const RATIO_OPTIONS: Array<{ value: AspectRatio; title: string; subtitle:
   { value: '3:4', title: '3:4', subtitle: '传统', w: 3, h: 4 },
   { value: '4:3', title: '4:3', subtitle: '经典', w: 4, h: 3 },
   { value: '16:9', title: '16:9', subtitle: '宽屏', w: 16, h: 9 },
-  { value: '9:16', title: '9:16', subtitle: '社交故事', w: 9, h: 16 },
+  { value: '9:16', title: '9:16', subtitle: '竖屏', w: 9, h: 16 },
   { value: '21:9', title: '21:9', subtitle: '超宽', w: 21, h: 9 },
 ]
 
@@ -33,16 +33,16 @@ const FALLBACK_SIZE_MAP: Record<string, string> = {
 // Standard resolutions from display/photography conventions, matched to pixel tiers.
 // Falls back to algorithm when no standard size is within ±25% of the pixel target.
 const STANDARD_SIZES: Record<string, Record<PixelTier, string | null>> = {
-  '1:1':  { '1k': '1024x1024', '2k': '2048x2048', '4k': null },
-  '4:3':  { '1k': '1152x864',  '2k': '2368x1776', '4k': null },
-  '3:2':  { '1k': '1248x832',  '2k': '2496x1664', '4k': null },
-  '2:3':  { '1k': '832x1248',  '2k': '1664x2496', '4k': null },
+  '1:1':  { '1k': '1024x1024', '2k': '2048x2048', '4k': '2880x2880' },
+  '4:3':  { '1k': '1152x864',  '2k': '2368x1776', '4k': '3264x2448' },
+  '3:2':  { '1k': '1248x832',  '2k': '2496x1664', '4k': '3504x2336' },
+  '2:3':  { '1k': '832x1248',  '2k': '1664x2496', '4k': '2336x3504' },
   '16:9': { '1k': '1360x768',  '2k': '2736x1536', '4k': '3808x2144' },
   '9:16': { '1k': '768x1360',  '2k': '1536x2736', '4k': '2144x3808' },
   '21:9': { '1k': '1568x672',  '2k': '3136x1344', '4k': null },
   '2:1':  { '1k': '1440x720',  '2k': '2880x1440', '4k': null },
   '3:1':  { '1k': '1776x592',  '2k': '3552x1184', '4k': null },
-  '3:4':  { '1k': '880x1168',  '2k': '1776x2368', '4k': null },
+  '3:4':  { '1k': '880x1168',  '2k': '1776x2368', '4k': '2448x3264' },
 }
 
 const PIXEL_TARGETS: Record<PixelTier, number> = {
@@ -61,6 +61,12 @@ export function validateSize(w: number, h: number): string[] {
   if (w * h < 655360) errors.push('像素总量不能低于 655,360')
   if (w * h > 8294400) errors.push('像素总量不能超过 8,294,400')
   return errors
+}
+
+export function availableTiersFor(ratio: string): PixelTier[] {
+  const entry = STANDARD_SIZES[ratio]
+  if (!entry) return ['1k', '2k', '4k']
+  return (Object.entries(entry) as [PixelTier, string | null][]).filter(([, v]) => v).map(([k]) => k)
 }
 
 export function simplifyRatio(width: number, height: number) {
