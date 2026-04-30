@@ -6,7 +6,7 @@ import {
   faGear, faMinus, faPlus, faWandMagicSparkles,
   faXmark, faLayerGroup,
 } from '@fortawesome/free-solid-svg-icons'
-import { RATIO_OPTIONS, type PixelTier, type Quality } from '@/lib/provider-settings'
+import { RATIO_OPTIONS, round16, type PixelTier, type Quality } from '@/lib/provider-settings'
 import { DEFAULTS, type ProviderEntry } from '@/lib/config'
 import type { RefItem } from '@/lib/types'
 import { UsageGuide } from './UsageGuide'
@@ -27,7 +27,8 @@ function clamp(value: number) { return Math.max(1, Math.min(10, value)) }
 
 interface Props {
   prompt: string; setPrompt: (v: string) => void
-  setRatio: (v: string) => void
+  ratio: string; setRatio: (v: string) => void
+  customSize: { w: number; h: number }; setCustomSize: (v: { w: number; h: number }) => void; customSizeErrors: string[]
   pixelTier: PixelTier; setPixelTier: (v: PixelTier) => void
   quality: Quality; setQuality: (v: Quality) => void
   count: number; setCount: (v: number) => void
@@ -53,7 +54,7 @@ interface Props {
 }
 
 export function Sidebar({
-  prompt, setPrompt, setRatio, pixelTier, setPixelTier,
+  prompt, setPrompt, ratio, setRatio, customSize, setCustomSize, customSizeErrors, pixelTier, setPixelTier,
   quality, setQuality, count, setCount, refImages, addFiles, removeRef, clearRefs, onReorderRefs, onReorderActive,
   sizeOpen, setSizeOpen, activeProvider, concurrency, outputSize,
   loading, hasPrompt, apiKey, handleSubmit, autoOptions, selectedSizeLabel,
@@ -184,11 +185,18 @@ export function Sidebar({
                 {RATIO_OPTIONS.filter(o => o.value !== 'auto').map((o) => (
                   <SizeOption key={o.value} title={o.title} subtitle={o.subtitle} onClick={() => { setRatio(o.value); setSizeOpen(false) }} wide={o.w > o.h} />
                 ))}
+                <div className="my-1 h-px" style={{ background: 'rgb(0 0 0 / 0.08)' }} />
+                <button onClick={() => { setRatio('custom'); setSizeOpen(false) }} className="flex h-9 w-full items-center gap-3 px-4 text-sm hover:bg-black/10 transition-colors duration-150">
+                  <span className="flex h-5 w-5 items-center justify-center text-[10px] font-bold" style={{ color: '#616161' }}>W×H</span>
+                  <span className="font-medium" style={{ color: '#1a1a1a' }}>自定义</span>
+                  <span className="text-xs" style={{ color: '#616161' }}>输入像素</span>
+                </button>
               </div>
               </>
             )}
           </div>
 
+          {ratio !== 'custom' && (
           <div className="relative flex h-10 shrink-0 items-center overflow-hidden rounded-lg" style={{ width: '5.5rem', background: 'rgb(0 0 0 / 0.04)' }}>
             <div className="absolute inset-y-0.5 rounded-md transition-all duration-300 ease-out" style={{
               left: `calc(${PIXEL_TIERS.findIndex(t => t.value === pixelTier)} * 100% / 3 + 2px)`,
@@ -200,7 +208,35 @@ export function Sidebar({
                 style={{ color: pixelTier === tier.value ? '#1a1a1a' : '#919191' }} title={tier.estimate}>{tier.label}</button>
             ))}
           </div>
+          )}
         </div>
+
+        {ratio === 'custom' && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2">
+              <input value={customSize.w || ''} onChange={(e) => setCustomSize({ ...customSize, w: Number(e.target.value) || 0 })}
+                onBlur={() => setCustomSize({ ...customSize, w: round16(Math.max(16, customSize.w)) })}
+                type="number" min={16} step={16} placeholder="宽"
+                className="h-10 w-24 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
+                style={{ background: '#fff', borderColor: customSizeErrors.length ? 'rgb(211 72 43 / 0.5)' : 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
+              <span className="text-sm font-medium" style={{ color: '#919191' }}>×</span>
+              <input value={customSize.h || ''} onChange={(e) => setCustomSize({ ...customSize, h: Number(e.target.value) || 0 })}
+                onBlur={() => setCustomSize({ ...customSize, h: round16(Math.max(16, customSize.h)) })}
+                type="number" min={16} step={16} placeholder="高"
+                className="h-10 w-24 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
+                style={{ background: '#fff', borderColor: customSizeErrors.length ? 'rgb(211 72 43 / 0.5)' : 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
+              <span className="text-[10px]" style={{ color: '#919191' }}>{(round16(customSize.w) * round16(customSize.h) / 1000000).toFixed(2)}M px</span>
+            </div>
+            {customSizeErrors.length > 0 && (
+              <div className="mt-1.5 flex flex-col gap-0.5">
+                {customSizeErrors.map((err, i) => (
+                  <span key={i} className="text-[10px]" style={{ color: '#d3482b' }}>{err}</span>
+                ))}
+              </div>
+            )}
+            <p className="mt-1.5 text-[10px]" style={{ color: '#bfbfbf' }}>宽高自动对齐到 16 倍数，长短边比 ≤ 3:1，边长 &lt; 3840</p>
+          </div>
+        )}
 
         {/* Quality */}
         <div className="mb-4">
@@ -237,12 +273,12 @@ export function Sidebar({
             <FontAwesomeIcon icon={faGear} className={`${apiKey ? '' : 'animate-pulse'} h-3.5 w-3.5`} />
           </button>
         </div>
-        <button onClick={handleSubmit} disabled={loading || !hasPrompt || !apiKey}
+        <button onClick={handleSubmit} disabled={loading || !hasPrompt || !apiKey || customSizeErrors.length > 0}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-[0.97] disabled:active:scale-100"
           style={{
-            background: hasPrompt && !loading && apiKey ? '#346aea' : 'rgb(0 0 0 / 0.04)',
-            color: hasPrompt && !loading && apiKey ? '#fff' : '#919191',
-            cursor: hasPrompt && !loading && apiKey ? 'pointer' : 'not-allowed',
+            background: hasPrompt && !loading && apiKey && !customSizeErrors.length ? '#346aea' : 'rgb(0 0 0 / 0.04)',
+            color: hasPrompt && !loading && apiKey && !customSizeErrors.length ? '#fff' : '#919191',
+            cursor: hasPrompt && !loading && apiKey && !customSizeErrors.length ? 'pointer' : 'not-allowed',
             opacity: loading ? 0.8 : 1,
             transform: loading ? 'scale(0.98)' : undefined,
           }}

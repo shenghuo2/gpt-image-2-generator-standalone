@@ -51,6 +51,18 @@ const PIXEL_TARGETS: Record<PixelTier, number> = {
   '4k': 8294400,
 }
 
+export function round16(v: number) { return Math.max(16, Math.round(v / 16) * 16) }
+
+export function validateSize(w: number, h: number): string[] {
+  const errors: string[] = []
+  if (w <= 0 || h <= 0) return ['宽高必须大于 0']
+  if (Math.max(w, h) / Math.min(w, h) > 3) errors.push('长短边比不能超过 3:1')
+  if (w >= 3840 || h >= 3840) errors.push('边长不能 ≥ 3840')
+  if (w * h < 655360) errors.push('像素总量不能低于 655,360')
+  if (w * h > 8294400) errors.push('像素总量不能超过 8,294,400')
+  return errors
+}
+
 export function simplifyRatio(width: number, height: number) {
   const divisor = gcd(Math.max(1, Math.round(width)), Math.max(1, Math.round(height)))
   return `${Math.round(width) / divisor}:${Math.round(height) / divisor}`

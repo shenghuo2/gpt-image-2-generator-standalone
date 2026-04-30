@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { simplifyRatio, sizeFromRatio, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
+import { simplifyRatio, sizeFromRatio, validateSize, round16, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
 import { DEFAULTS, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, type StandaloneConfig, type ProviderEntry } from '@/lib/config'
 import { generateImage, editImage } from '@/lib/api-client'
 import { saveImages, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage, getImageCount } from '@/lib/db'
@@ -39,6 +39,7 @@ function saveHistory(items: HistoryItem[]) {
 export function ImageGenerator() {
   const [prompt, setPrompt] = useState('')
   const [ratio, setRatio] = useState<string>('auto')
+  const [customSize, setCustomSize] = useState({ w: 1024, h: 1024 })
   const [pixelTier, setPixelTier] = useState<PixelTier>('1k')
   const [quality, setQuality] = useState<Quality>(DEFAULTS.defaultQuality)
   const [count, setCount] = useState(1)
@@ -140,8 +141,8 @@ export function ImageGenerator() {
   )
 
   const outputSize = useMemo(
-    () => sizeFromRatio(activeRatio, pixelTier, DEFAULTS.supportsCustomSize),
-    [activeRatio, pixelTier]
+    () => ratio === 'custom' ? `${round16(customSize.w)}x${round16(customSize.h)}` : sizeFromRatio(activeRatio, pixelTier, DEFAULTS.supportsCustomSize),
+    [ratio, customSize, activeRatio, pixelTier]
   )
   const concurrency = Math.min(DEFAULTS.maxConcurrency, count)
 
@@ -280,9 +281,12 @@ export function ImageGenerator() {
   }
 
   const hasPrompt = prompt.trim().length > 0
-  const selectedSizeLabel = ratio === 'auto'
-    ? (autoOptions[0] ? `${autoOptions[0].title}（${autoOptions[0].subtitle}）` : 'auto')
-    : autoOptions.find((option) => option.value === ratio)?.title || ratio
+  const customSizeErrors = ratio === 'custom' ? validateSize(round16(customSize.w), round16(customSize.h)) : []
+  const selectedSizeLabel = ratio === 'custom'
+    ? `${round16(customSize.w)}×${round16(customSize.h)}`
+    : ratio === 'auto'
+      ? (autoOptions[0] ? `${autoOptions[0].title}（${autoOptions[0].subtitle}）` : 'auto')
+      : autoOptions.find((option) => option.value === ratio)?.title || ratio
 
   const warnings = useMemo(() => {
     const msgs: string[] = []
@@ -324,7 +328,8 @@ export function ImageGenerator() {
 
         <Sidebar
           prompt={prompt} setPrompt={setPrompt}
-          setRatio={setRatio}
+          ratio={ratio} setRatio={setRatio}
+          customSize={customSize} setCustomSize={setCustomSize} customSizeErrors={customSizeErrors}
           pixelTier={pixelTier} setPixelTier={setPixelTier}
           quality={quality} setQuality={setQuality}
           count={count} setCount={setCount}
