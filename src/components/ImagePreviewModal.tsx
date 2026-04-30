@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCopy, faDownload, faRedo, faXmark, faChevronLeft, faChevronRight, faTrash } from '@fortawesome/free-solid-svg-icons'
+import { gcd, QUALITY_CN } from '@/lib/utils'
 import type { HistoryItem } from '@/lib/types'
 
 interface Props {
@@ -10,13 +11,6 @@ interface Props {
   onReuse: (item: HistoryItem) => void
   onDelete: (id: string) => void
 }
-
-function gcd(a: number, b: number): number {
-  while (b) { [a, b] = [b, a % b] }
-  return a
-}
-
-const QUALITY_CN: Record<string, string> = { auto: '自动', low: '低', medium: '中', high: '高', standard: '标准', hd: '高清' }
 
 function ratioLabel(w: number, h: number) {
   const d = gcd(w, h)
@@ -32,9 +26,6 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
   const [copyImgMsg, setCopyImgMsg] = useState('')
   const [toast, setToast] = useState('')
 
-  useEffect(() => { setActualSize(null) }, [currentImg])
-
-  // Clear copy message after 2s
   useEffect(() => {
     if (!copyMsg) return
     const t = setTimeout(() => setCopyMsg(''), 2000)
@@ -151,12 +142,12 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
               />
               {item.images.length > 1 && (
                 <>
-                  <button onClick={() => setCurrentImg((v) => (v - 1 + item.images.length) % item.images.length)}
+                  <button onClick={() => { setActualSize(null); setCurrentImg((v) => (v - 1 + item.images.length) % item.images.length) }}
                     className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full shadow-md transition-colors hover:bg-white"
                     style={{ background: 'rgba(255,255,255,0.9)', color: '#1a1a1a' }}>
                     <FontAwesomeIcon icon={faChevronLeft} className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => setCurrentImg((v) => (v + 1) % item.images.length)}
+                  <button onClick={() => { setActualSize(null); setCurrentImg((v) => (v + 1) % item.images.length) }}
                     className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full shadow-md transition-colors hover:bg-white"
                     style={{ background: 'rgba(255,255,255,0.9)', color: '#1a1a1a' }}>
                     <FontAwesomeIcon icon={faChevronRight} className="h-3.5 w-3.5" />

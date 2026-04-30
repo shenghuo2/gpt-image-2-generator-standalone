@@ -5,26 +5,12 @@ import { DEFAULTS, loadConfig, saveConfig, getActiveProvider, type StandaloneCon
 import { generateImage, editImage } from '@/lib/api-client'
 import { saveImages, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage } from '@/lib/db'
 import { makeId } from '@/lib/id'
-import type { HistoryItem } from '@/lib/types'
+import type { HistoryItem, RefItem } from '@/lib/types'
 import { NavBar } from './NavBar'
 import { Sidebar } from './Sidebar'
 import { MainArea } from './MainArea'
 import type { ImageJob } from './ImageGrid'
 
-type RefItem = {
-  id: string
-  file: File
-  url: string
-  width?: number
-  height?: number
-}
-
-function clampCount(value: number) {
-  return Math.max(1, Math.min(10, value))
-}
-function timestamp() {
-  return new Date().getTime()
-}
 function chineseIndex(index: number) {
   return ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'][index] || String(index + 1)
 }
@@ -65,13 +51,14 @@ export function ImageGenerator() {
   const [isDragging, setIsDragging] = useState(false)
   const [sizeOpen, setSizeOpen] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
-  const [providers, setProviders] = useState<ProviderEntry[]>([])
-  const [activeProviderId, setActiveProviderId] = useState('')
+  const [initialConfig] = useState(() => loadConfig())
+  const [providers, setProviders] = useState<ProviderEntry[]>(() => initialConfig.providers)
+  const [activeProviderId, setActiveProviderId] = useState(() => initialConfig.activeProviderId)
   const [draftProviders, setDraftProviders] = useState<ProviderEntry[]>([])
   const [draftActiveId, setDraftActiveId] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [maxStorageMB, setMaxStorageMB] = useState(500)
+  const [maxStorageMB, setMaxStorageMB] = useState(() => initialConfig.maxStorageMB)
   const [draftMaxStorageMB, setDraftMaxStorageMB] = useState(500)
   const [storageUsage, setStorageUsage] = useState(0)
   const [guideOpen, setGuideOpen] = useState(false)
@@ -114,10 +101,6 @@ export function ImageGenerator() {
   useEffect(() => { return () => refImagesRef.current.forEach((item) => URL.revokeObjectURL(item.url)) }, [])
 
   useEffect(() => {
-    const cfg = loadConfig()
-    setProviders(cfg.providers)
-    setActiveProviderId(cfg.activeProviderId)
-    setMaxStorageMB(cfg.maxStorageMB)
     void (async () => {
       const items = loadPromptHistory()
       const restored = await Promise.all(items.map(async (item) => {
@@ -148,7 +131,7 @@ export function ImageGenerator() {
 
   const activeProvider = useMemo(
     () => getActiveProvider({ providers, activeProviderId, maxStorageMB }),
-    [providers, activeProviderId]
+    [providers, activeProviderId, maxStorageMB]
   )
 
   const outputSize = useMemo(
@@ -177,7 +160,7 @@ export function ImageGenerator() {
       prompt: prompt.trim(), quality, count, pixelTier, outputSize,
       ratio: (ratio === 'auto' ? 'auto' : activeRatio) as AspectRatio,
       isEdit: refImages.length > 0, concurrency, batchId: makeId(),
-      startedAt: timestamp(), estimateSeconds: DEFAULTS.defaultEstimateSeconds + (pixelTier === '2k' ? 30 : pixelTier === '4k' ? 60 : 0),
+      startedAt: Date.now(), estimateSeconds: DEFAULTS.defaultEstimateSeconds + (pixelTier === '2k' ? 30 : pixelTier === '4k' ? 60 : 0),
       apiKey: activeProvider.apiKey, baseUrl: activeProvider.baseUrl, providerSupportsResponseFormat: activeProvider.supportsResponseFormat,
     }
 
@@ -204,8 +187,8 @@ export function ImageGenerator() {
     }
 
     const promptEntry: HistoryItem = {
-      id: snap.batchId, timestamp: timestamp(), prompt: snap.prompt,
-      params: { ratio: snap.ratio, quality: snap.quality, count: snap.count, pixelTier: snap.pixelTier, size: snap.outputSize, provider: { providerName: activeProvider.name, model: DEFAULTS.model, baseUrl: snap.baseUrl }, durationSeconds: Math.round((timestamp() - snap.startedAt) / 1000) },
+      id: snap.batchId, timestamp: Date.now(), prompt: snap.prompt,
+      params: { ratio: snap.ratio, quality: snap.quality, count: snap.count, pixelTier: snap.pixelTier, size: snap.outputSize, provider: { providerName: activeProvider.name, model: DEFAULTS.model, baseUrl: snap.baseUrl }, durationSeconds: Math.round((Date.now() - snap.startedAt) / 1000) },
       images: [], refImages: refImageUrls.length ? refImageUrls : undefined, refImageKeys: refImageKeys.length ? refImageKeys : undefined, type: snap.isEdit ? 'edit' : 'generate',
     }
     const entryNoImages = { ...promptEntry, images: [] as string[] }
@@ -220,7 +203,7 @@ export function ImageGenerator() {
         while (cursor < batch.length) {
           const job = batch[cursor]
           cursor += 1
-          updateJob(job.id, { status: 'running', startedAt: timestamp(), error: undefined })
+          updateJob(job.id, { status: 'running', startedAt: Date.now(), error: undefined })
           try {
             const auth = { apiKey: snap.apiKey, baseUrl: snap.baseUrl, supportsResponseFormat: snap.providerSupportsResponseFormat }
             const url = snap.isEdit
@@ -246,7 +229,7 @@ export function ImageGenerator() {
         const next = prev.map(p => p.id !== snap.batchId ? p : {
           ...p, images: images.length ? images : p.images,
           error: allFailed ? (errors[0] || '全部请求失败') : undefined,
-          params: { ...p.params, durationSeconds: Math.round((timestamp() - snap.startedAt) / 1000) },
+          params: { ...p.params, durationSeconds: Math.round((Date.now() - snap.startedAt) / 1000) },
         })
         setTimeout(() => saveHistory(next), 0)
         return next
@@ -314,7 +297,7 @@ export function ImageGenerator() {
 
         <Sidebar
           prompt={prompt} setPrompt={setPrompt}
-          ratio={ratio} setRatio={setRatio}
+          setRatio={setRatio}
           pixelTier={pixelTier} setPixelTier={setPixelTier}
           quality={quality} setQuality={setQuality}
           count={count} setCount={setCount}

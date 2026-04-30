@@ -133,7 +133,7 @@ export async function getStorageUsage(): Promise<number> {
     let total = 0
     for (const name of [IMAGE_STORE, REF_STORE]) {
       const store = db.transaction(name, 'readonly').objectStore(name)
-      const values = await new Promise<any[]>((resolve, reject) => {
+      const values = await new Promise<unknown[]>((resolve, reject) => {
         const req = store.getAll()
         req.onsuccess = () => resolve(req.result || [])
         req.onerror = () => reject(req.error)

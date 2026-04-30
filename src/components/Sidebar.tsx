@@ -8,16 +8,9 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import { RATIO_OPTIONS, type PixelTier, type Quality } from '@/lib/provider-settings'
 import { DEFAULTS, type ProviderEntry } from '@/lib/config'
+import type { RefItem } from '@/lib/types'
 import { UsageGuide } from './UsageGuide'
 import { ConfigModal } from './ConfigModal'
-
-type RefItem = {
-  id: string
-  file: File
-  url: string
-  width?: number
-  height?: number
-}
 
 const QUALITIES: Quality[] = ['low', 'medium', 'high']
 const QUALITY_LABELS: Record<Quality, string> = {
@@ -34,7 +27,7 @@ function clamp(value: number) { return Math.max(1, Math.min(10, value)) }
 
 interface Props {
   prompt: string; setPrompt: (v: string) => void
-  ratio: string; setRatio: (v: string) => void
+  setRatio: (v: string) => void
   pixelTier: PixelTier; setPixelTier: (v: PixelTier) => void
   quality: Quality; setQuality: (v: Quality) => void
   count: number; setCount: (v: number) => void
@@ -58,7 +51,7 @@ interface Props {
 }
 
 export function Sidebar({
-  prompt, setPrompt, ratio, setRatio, pixelTier, setPixelTier,
+  prompt, setPrompt, setRatio, pixelTier, setPixelTier,
   quality, setQuality, count, setCount, refImages, addFiles, removeRef, clearRefs, onReorderRefs, onReorderActive,
   sizeOpen, setSizeOpen, activeProvider, concurrency, outputSize,
   loading, hasPrompt, apiKey, handleSubmit, autoOptions, selectedSizeLabel,

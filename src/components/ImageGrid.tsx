@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowRotateRight, faTriangleExclamation, faTrash } from '@fortawesome/free-solid-svg-icons'
+import { QUALITY_CN } from '@/lib/utils'
 import type { HistoryItem } from '@/lib/types'
 
 export type ImageJob = {
@@ -29,8 +30,6 @@ interface Props {
   onDelete: (id: string) => void
   history: HistoryItem[]
 }
-
-function timestamp() { return Date.now() }
 
 function formatSeconds(seconds: number) {
   if (seconds < 60) return `${seconds}s`
@@ -60,7 +59,6 @@ interface CardFooterProps {
   children?: React.ReactNode
 }
 
-const QUALITY_CN: Record<string, string> = { auto: '自动', low: '低', medium: '中', high: '高', standard: '标准', hd: '高清' }
 
 function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCount, durationSeconds, timestamp, error, onRetry, children }: CardFooterProps) {
   return (
@@ -103,12 +101,12 @@ function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCou
 }
 
 export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history }: Props) {
-  const [now, setNow] = useState(timestamp())
+  const [now, setNow] = useState(() => Date.now())
 
   const running = jobs.some(j => j.status === 'running')
   useEffect(() => {
     if (!running) return
-    const t = setInterval(() => setNow(timestamp()), 1000)
+    const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [running])
 

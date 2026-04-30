@@ -29,8 +29,6 @@ interface Props {
   setPixelTier: (v: PixelTier) => void
 }
 
-function timestamp() { return Date.now() }
-
 export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier }: Props) {
   return (
     <main className="flex min-w-0 flex-1 flex-col relative" style={{ background: '#f5f5f5' }}>
@@ -50,7 +48,7 @@ export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, qual
               const jobQuality = job.quality || quality
               const jobSize = job.size || outputSize
               void (async () => {
-                const startedAt = timestamp()
+                const startedAt = Date.now()
                 updateJob(job.id, { status: 'running', startedAt, error: undefined })
                 try {
                   const url = isEdit

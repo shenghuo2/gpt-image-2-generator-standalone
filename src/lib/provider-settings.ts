@@ -1,46 +1,13 @@
+import { gcd } from './utils'
+
 export type Quality = 'auto' | 'low' | 'medium' | 'high' | 'standard' | 'hd'
 export type AspectRatio = 'auto' | '1:1' | '2:1' | '3:1' | '2:3' | '3:2' | '3:4' | '4:3' | '16:9' | '9:16' | '21:9'
 export type PixelTier = '1k' | '2k' | '4k'
-export type BillingMode = 'image' | 'token'
 
 export type ProviderSettings = {
   providerName: string
   model: string
-  apiKey: string
   baseUrl: string
-  generatePath: string
-  editPath: string
-  supportsCustomSize: boolean
-  supportsConcurrency: boolean
-  maxConcurrency: number
-  billingMode: BillingMode
-  generationBillingMode: BillingMode
-  editBillingMode: BillingMode
-  generationBillingUnits: number
-  editBillingUnits: number
-  defaultQuality: Quality
-  defaultEstimateSeconds: number
-}
-
-export type ProviderRequestSettings = Partial<ProviderSettings>
-
-export const DEFAULT_PROVIDER_SETTINGS: ProviderSettings = {
-  providerName: 'NowCoding',
-  model: 'gpt-image-2',
-  apiKey: '',
-  baseUrl: 'https://nowcoding.ai',
-  generatePath: '/v1/images/generations',
-  editPath: '/v1/images/edits',
-  supportsCustomSize: true,
-  supportsConcurrency: true,
-  maxConcurrency: 3,
-  billingMode: 'image',
-  generationBillingMode: 'image',
-  editBillingMode: 'image',
-  generationBillingUnits: 1,
-  editBillingUnits: 1,
-  defaultQuality: 'low',
-  defaultEstimateSeconds: 60,
 }
 
 export const RATIO_OPTIONS: Array<{ value: AspectRatio; title: string; subtitle: string; w: number; h: number }> = [
@@ -57,7 +24,7 @@ export const RATIO_OPTIONS: Array<{ value: AspectRatio; title: string; subtitle:
   { value: '21:9', title: '21:9', subtitle: '超宽', w: 21, h: 9 },
 ]
 
-export const FALLBACK_SIZE_MAP: Record<string, string> = {
+const FALLBACK_SIZE_MAP: Record<string, string> = {
   '1:1': '1024x1024',
   '2:3': '1024x1536',
   '3:2': '1536x1024',
@@ -82,40 +49,6 @@ const PIXEL_TARGETS: Record<PixelTier, number> = {
   '1k': 1024 * 1024,
   '2k': 2048 * 2048,
   '4k': 8294400,
-}
-
-export function normalizeBaseUrl(value: string) {
-  let url = value.trim().replace(/\/+$/, '')
-  url = url.replace(/\/v1$/i, '')
-  return url
-}
-
-export function normalizeRoutePath(value: string, fallback: string) {
-  const route = (value.trim() || fallback).replace(/^\/+/, '')
-  return `/${route}`
-}
-
-export function endpointFor(baseUrl: string, path: string) {
-  const base = normalizeBaseUrl(baseUrl)
-  const route = normalizeRoutePath(path, '/v1/images/generations')
-  return `${base}${route}`
-}
-
-export function mergeProviderSettings(settings?: ProviderRequestSettings): ProviderSettings {
-  return {
-    ...DEFAULT_PROVIDER_SETTINGS,
-    ...settings,
-    apiKey: settings?.apiKey || process.env.OPENAI_API_KEY || '',
-    baseUrl: normalizeBaseUrl(settings?.baseUrl || process.env.OPENAI_BASE_URL || DEFAULT_PROVIDER_SETTINGS.baseUrl),
-    generatePath: normalizeRoutePath(settings?.generatePath || DEFAULT_PROVIDER_SETTINGS.generatePath, DEFAULT_PROVIDER_SETTINGS.generatePath),
-    editPath: normalizeRoutePath(settings?.editPath || DEFAULT_PROVIDER_SETTINGS.editPath, DEFAULT_PROVIDER_SETTINGS.editPath),
-    maxConcurrency: Math.max(1, Math.min(10, Math.floor(Number(settings?.maxConcurrency) || DEFAULT_PROVIDER_SETTINGS.maxConcurrency))),
-    defaultEstimateSeconds: Math.max(15, Math.floor(Number(settings?.defaultEstimateSeconds) || DEFAULT_PROVIDER_SETTINGS.defaultEstimateSeconds)),
-  }
-}
-
-function gcd(a: number, b: number): number {
-  return b === 0 ? a : gcd(b, a % b)
 }
 
 export function simplifyRatio(width: number, height: number) {

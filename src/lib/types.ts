@@ -1,5 +1,13 @@
 import type { AspectRatio, PixelTier, ProviderSettings, Quality } from './provider-settings'
 
+export interface RefItem {
+  id: string
+  file: File
+  url: string
+  width?: number
+  height?: number
+}
+
 export interface HistoryItem {
   id: string
   timestamp: number
@@ -12,4 +20,4 @@ export interface HistoryItem {
   type: 'generate' | 'edit'
 }
 
-export type { AspectRatio, PixelTier, ProviderSettings, Quality }
+export type { AspectRatio, PixelTier, Quality }
