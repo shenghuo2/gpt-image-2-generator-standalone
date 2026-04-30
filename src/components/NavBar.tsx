@@ -13,7 +13,7 @@ export function NavBar({ searchQuery, setSearchQuery }: Props) {
       <div className="flex items-center gap-2 shrink-0 px-3 lg:w-[400px] lg:px-4">
         <img src="./logo.png" alt="" className="h-5 w-5 rounded" />
         <span className="text-[13px] font-semibold truncate" style={{ color: '#1a1a1a' }}>
-          <span className="hidden lg:inline">shenghuo2的 GPT-image-2 图片生成站</span>
+          <span className="hidden lg:inline">shenghuo2 的 GPT-image-2 图片生成站</span>
           <span className="lg:hidden">生蚝的生图站</span>
         </span>
       </div>

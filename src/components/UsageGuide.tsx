@@ -11,8 +11,9 @@ export function UsageGuide({ open, onClose }: Props) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
-      <div className="w-full max-w-lg lg:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl" style={{ background: '#fff' }} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
+      <div className="w-full max-w-lg lg:max-w-2xl max-h-full flex flex-col rounded-2xl shadow-2xl" style={{ background: '#fff' }} onClick={(e) => e.stopPropagation()}>
+        <div className="overflow-y-auto rounded-2xl">
         <div className="flex items-center gap-3 border-b px-5 py-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: 'rgb(52 106 234 / 0.1)' }}>
             <FontAwesomeIcon icon={faCircleQuestion} className="h-4 w-4" style={{ color: '#346aea' }} />
@@ -70,6 +71,7 @@ export function UsageGuide({ open, onClose }: Props) {
               <li>不同中转站的审核策略和定价不同，建议按需切换</li>
             </ul>
           </section>
+        </div>
         </div>
       </div>
     </div>
