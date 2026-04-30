@@ -11,6 +11,7 @@ import {
   faKey,
   faMinus,
   faPlus,
+  faSearch,
   faWandMagicSparkles,
   faXmark,
   faLayerGroup,
@@ -57,6 +58,7 @@ function timestamp() {
   return new Date().getTime()
 }
 
+
 const PROMPT_HISTORY_KEY = 'gpt-image-prompt-history'
 const MAX_PROMPTS = 50
 
@@ -99,6 +101,7 @@ export function ImageGenerator() {
   const [draftApiKey, setDraftApiKey] = useState('')
   const [draftBaseUrl, setDraftBaseUrl] = useState('')
   const [showKey, setShowKey] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [maxStorageMB, setMaxStorageMB] = useState(500)
   const [draftMaxStorageMB, setDraftMaxStorageMB] = useState(500)
   const [storageUsage, setStorageUsage] = useState(0)
@@ -193,9 +196,12 @@ export function ImageGenerator() {
 
   // Hide prompt-only history cards that have a running job (avoid duplicate display)
   const visibleHistory = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
     const activeBatchIds = new Set(jobs.map(j => j.id.split(':')[0]))
-    return history.filter(item => item.images.length > 0 || !activeBatchIds.has(item.id))
-  }, [history, jobs])
+    let items = history.filter(item => item.images.length > 0 || !activeBatchIds.has(item.id))
+    if (q) items = items.filter(item => item.prompt.toLowerCase().includes(q))
+    return items
+  }, [history, jobs, searchQuery])
 
   const updateJob = (id: string, patch: Partial<ImageJob>) => {
     setJobs((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item))
@@ -346,20 +352,54 @@ export function ImageGenerator() {
     : autoOptions.find((option) => option.value === ratio)?.title || ratio
 
   return (
-    <div
-      className="flex min-h-screen flex-col lg:flex-row lg:h-screen lg:overflow-hidden"
-      style={{ background: '#f5f5f5' }}
-      onDragOver={(event) => { event.preventDefault(); setIsDragging(true) }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={(event) => { event.preventDefault(); setIsDragging(false); addFiles(event.dataTransfer.files) }}
-    >
-      {isDragging && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/5 backdrop-blur-sm">
-          <p className="text-base font-medium" style={{ color: '#1a1a1a' }}>松开后添加参考图</p>
+    <div className="flex flex-col h-screen">
+      {/* Top navigation */}
+      <nav className="flex h-12 shrink-0 items-center border-b" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.08)' }}>
+        <div className="flex items-center gap-2 shrink-0 px-3 lg:w-[400px] lg:px-4">
+          <img src="./logo.png" alt="" className="h-5 w-5 rounded" />
+          <span className="text-[13px] font-semibold truncate" style={{ color: '#1a1a1a' }}>shenghuo2的 GPT-image-2 图片生成站</span>
         </div>
-      )}
+        <div className="flex-1 flex items-center min-w-0 gap-2 px-3 lg:px-4">
+          <div className="relative w-[120px] lg:w-[220px]">
+            <FontAwesomeIcon icon={faSearch} className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 pointer-events-none" style={{ color: '#919191' }} />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery('') }}
+              placeholder="过滤历史..."
+              className="w-full h-7 rounded-md border text-xs outline-none transition-colors focus:border-[#346aea]"
+              style={{ background: 'rgb(0 0 0 / 0.03)', borderColor: 'rgb(0 0 0 / 0.1)', color: '#1a1a1a', paddingLeft: '1.6rem', paddingRight: '1.75rem' }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full hover:bg-black/10"
+              >
+                <FontAwesomeIcon icon={faXmark} className="h-2.5 w-2.5" style={{ color: '#919191' }} />
+              </button>
+            )}
+          </div>
+          <a href="https://github.com/shenghuo2/gpt-image-2-generator-standalone" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[11px] hover:underline shrink-0 ml-auto" style={{ color: '#616161' }}>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            <span className="hidden lg:inline">GitHub</span>
+          </a>
+        </div>
+      </nav>
 
-      <aside className="flex w-full lg:w-[400px] shrink-0 flex-col lg:overflow-hidden border-b lg:border-b-0 lg:border-r" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
+      <div
+        className="flex flex-col lg:flex-row lg:overflow-hidden"
+        style={{ flex: 1, minHeight: 0, overflow: 'hidden', background: '#f5f5f5' }}
+        onDragOver={(event) => { event.preventDefault(); setIsDragging(true) }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(event) => { event.preventDefault(); setIsDragging(false); addFiles(event.dataTransfer.files) }}
+      >
+        {isDragging && (
+          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/5 backdrop-blur-sm">
+            <p className="text-base font-medium" style={{ color: '#1a1a1a' }}>松开后添加参考图</p>
+          </div>
+        )}
+
+        <aside className="flex w-full lg:w-[400px] shrink-0 flex-col lg:overflow-hidden border-b lg:border-b-0 lg:border-r" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
         <div className="flex-1 overflow-y-auto px-5 pb-4 pt-5 custom-scrollbar">
           <div className="mb-6">
             <div className="mb-3 flex items-center justify-between">
@@ -661,6 +701,7 @@ export function ImageGenerator() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
