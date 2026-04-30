@@ -1,5 +1,5 @@
 'use client'
-import { useState, type RefObject } from 'react'
+import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faChevronDown, faCropSimple,
@@ -40,7 +40,7 @@ interface Props {
   count: number; setCount: (v: number) => void
   refImages: RefItem[]; addFiles: (files: FileList | File[]) => void
   removeRef: (id: string) => void; clearRefs: () => void; onReorderRefs: (from: number, to: number) => void
-  reorderDraggingRef: RefObject<boolean>
+  onReorderActive: (v: boolean) => void
   sizeOpen: boolean; setSizeOpen: (v: boolean) => void
   activeProvider: ProviderEntry; concurrency: number; outputSize: string
   loading: boolean; hasPrompt: boolean; apiKey: string
@@ -59,7 +59,7 @@ interface Props {
 
 export function Sidebar({
   prompt, setPrompt, ratio, setRatio, pixelTier, setPixelTier,
-  quality, setQuality, count, setCount, refImages, addFiles, removeRef, clearRefs, onReorderRefs, reorderDraggingRef,
+  quality, setQuality, count, setCount, refImages, addFiles, removeRef, clearRefs, onReorderRefs, onReorderActive,
   sizeOpen, setSizeOpen, activeProvider, concurrency, outputSize,
   loading, hasPrompt, apiKey, handleSubmit, autoOptions, selectedSizeLabel,
   configOpen, setConfigOpen, providers, activeProviderId,
@@ -92,9 +92,9 @@ export function Sidebar({
                 <div
                   key={item.id}
                   draggable
-                  onDragStart={() => { reorderDraggingRef.current = true; setDragIdx(idx) }}
-                  onDragOver={(e) => { e.preventDefault(); if (dragIdx != null && dragIdx !== idx) { onReorderRefs(dragIdx, idx); setDragIdx(idx) } }}
-                  onDragEnd={() => { reorderDraggingRef.current = false; setDragIdx(null) }}
+                  onDragStart={() => { onReorderActive(true); setDragIdx(idx) }}
+                  onDragEnter={() => { if (dragIdx != null && dragIdx !== idx) { onReorderRefs(dragIdx, idx); setDragIdx(idx) } }}
+                  onDragEnd={() => { onReorderActive(false); setDragIdx(null) }}
                   onDrop={(e) => e.preventDefault()}
                   onClick={() => setPreviewRefUrl(item.url)}
                   className={`group relative aspect-square overflow-hidden rounded-lg border transition-opacity duration-150 ${dragIdx === idx ? 'opacity-40' : ''}`}

@@ -122,33 +122,36 @@ export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history }: Pro
 
         return (
           <div key={job.id} className="overflow-hidden rounded-xl border" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
-            {job.status === 'error' ? (
-              <>
-                <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-3 px-6 text-center" style={{ background: '#f5f5f5' }}>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: 'rgb(211 72 43 / 0.1)', color: '#d3482b' }}>
-                    <FontAwesomeIcon icon={faTriangleExclamation} className="h-4 w-4" />
-                  </div>
-                  <p className="text-sm font-semibold" style={{ color: '#1a1a1a' }}>生成失败</p>
-                  <p className="line-clamp-2 text-xs" style={{ color: '#616161' }}>{job.error}</p>
-                </div>
-                <CardFooter prompt={job.prompt} ratio={job.ratioLabel} size={job.size} providerName={job.providerName} type={job.type} imageCount={job.imageCount} error={job.error} onRetry={() => onRetry(job)} />
-              </>
-            ) : (
-              <>
-                <div className="flex aspect-[4/3] w-full items-center justify-center" style={{ background: '#f5f5f5' }}>
-                  <div className="w-full max-w-[200px] rounded-xl border p-3" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
-                    <div className="mb-2 flex items-center justify-between text-xs" style={{ color: '#616161' }}>
-                      <span>{job.status === 'queued' ? '排队中' : '生成中...'}</span>
-                      <span>{job.status === 'running' ? formatSeconds(elapsed) : `第 ${job.index + 1} 张`}</span>
+            {(() => {
+              const footer = { prompt: job.prompt, ratio: job.ratioLabel, size: job.size, providerName: job.providerName, type: job.type, imageCount: job.imageCount }
+              return job.status === 'error' ? (
+                <>
+                  <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-3 px-6 text-center" style={{ background: '#f5f5f5' }}>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: 'rgb(211 72 43 / 0.1)', color: '#d3482b' }}>
+                      <FontAwesomeIcon icon={faTriangleExclamation} className="h-4 w-4" />
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'rgb(0 0 0 / 0.06)' }}>
-                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: '#346aea' }} />
+                    <p className="text-sm font-semibold" style={{ color: '#1a1a1a' }}>生成失败</p>
+                    <p className="line-clamp-2 text-xs" style={{ color: '#616161' }}>{job.error}</p>
+                  </div>
+                  <CardFooter {...footer} error={job.error} onRetry={() => onRetry(job)} />
+                </>
+              ) : (
+                <>
+                  <div className="flex aspect-[4/3] w-full items-center justify-center" style={{ background: '#f5f5f5' }}>
+                    <div className="w-full max-w-[200px] rounded-xl border p-3" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
+                      <div className="mb-2 flex items-center justify-between text-xs" style={{ color: '#616161' }}>
+                        <span>{job.status === 'queued' ? '排队中' : '生成中...'}</span>
+                        <span>{job.status === 'running' ? formatSeconds(elapsed) : `第 ${job.index + 1} 张`}</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'rgb(0 0 0 / 0.06)' }}>
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: '#346aea' }} />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <CardFooter prompt={job.prompt} ratio={job.ratioLabel} size={job.size} providerName={job.providerName} type={job.type} imageCount={job.imageCount} />
-              </>
-            )}
+                  <CardFooter {...footer} />
+                </>
+              )
+            })()}
           </div>
         )
       })}

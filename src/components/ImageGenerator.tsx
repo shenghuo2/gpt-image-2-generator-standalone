@@ -78,6 +78,7 @@ export function ImageGenerator() {
   const refImagesRef = useRef<RefItem[]>([])
   const submittingRef = useRef(false)
   const reorderDraggingRef = useRef(false)
+  const onReorderActive = (v: boolean) => { reorderDraggingRef.current = v }
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const valid = Array.from(files).filter((file) => file.type.startsWith('image/'))
@@ -317,7 +318,7 @@ export function ImageGenerator() {
           pixelTier={pixelTier} setPixelTier={setPixelTier}
           quality={quality} setQuality={setQuality}
           count={count} setCount={setCount}
-          refImages={refImages} addFiles={addFiles} removeRef={removeRef} clearRefs={clearRefs} onReorderRefs={reorderRefs} reorderDraggingRef={reorderDraggingRef}
+          refImages={refImages} addFiles={addFiles} removeRef={removeRef} clearRefs={clearRefs} onReorderRefs={reorderRefs} onReorderActive={onReorderActive}
           sizeOpen={sizeOpen} setSizeOpen={setSizeOpen}
           activeProvider={activeProvider} concurrency={concurrency} outputSize={outputSize}
           loading={loading} hasPrompt={hasPrompt} apiKey={activeProvider.apiKey}
