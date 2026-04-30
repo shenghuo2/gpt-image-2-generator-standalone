@@ -29,6 +29,8 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
   const [actualSize, setActualSize] = useState<{ w: number; h: number } | null>(null)
 
   const [copyMsg, setCopyMsg] = useState('')
+  const [copyImgMsg, setCopyImgMsg] = useState('')
+  const [toast, setToast] = useState('')
 
   useEffect(() => { setActualSize(null) }, [currentImg])
 
@@ -38,6 +40,18 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
     const t = setTimeout(() => setCopyMsg(''), 2000)
     return () => clearTimeout(t)
   }, [copyMsg])
+
+  useEffect(() => {
+    if (!copyImgMsg) return
+    const t = setTimeout(() => setCopyImgMsg(''), 2000)
+    return () => clearTimeout(t)
+  }, [copyImgMsg])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(''), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   if (!item) return null
 
@@ -60,6 +74,17 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
       } catch {
         setCopyMsg('复制需要 HTTPS，请手动选中文字复制')
       }
+    }
+  }
+
+  const copyImage = async (url: string) => {
+    try {
+      const blob = await fetch(url).then(r => r.blob())
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })])
+      setCopyImgMsg('已复制')
+    } catch {
+      setCopyImgMsg('复制失败，非 HTTPS 环境')
+      setToast('本功能必须HTTPS，请尝试自行部署或者使用在线版本')
     }
   }
 
@@ -95,9 +120,14 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
               {hasImages ? `${currentImg + 1} / ${item.images.length}` : '提示词记录'}
             </span>
             {hasImages && (
-              <button onClick={() => download(img!)} className="ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors" style={{ background: '#346aea', color: '#fff' }}>
-                <FontAwesomeIcon icon={faDownload} className="h-3 w-3" />下载
-              </button>
+              <>
+                <button onClick={() => copyImage(img!)} className="ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-black/5" style={{ border: '1px solid rgb(0 0 0 / 0.15)', color: '#1a1a1a' }}>
+                  <FontAwesomeIcon icon={faCopy} className="h-3 w-3" />{copyImgMsg || '复制'}
+                </button>
+                <button onClick={() => download(img!)} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors" style={{ background: '#346aea', color: '#fff' }}>
+                  <FontAwesomeIcon icon={faDownload} className="h-3 w-3" />下载
+                </button>
+              </>
             )}
             <button
               onClick={() => { onDelete(item.id); onClose() }}
@@ -166,6 +196,13 @@ export function ImagePreviewModal({ item, onClose, onReuse, onDelete }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-6 left-1/2 z-[80] -translate-x-1/2 rounded-lg px-4 py-2.5 text-xs font-medium shadow-lg" style={{ background: '#d3482b', color: '#fff' }}>
+          {toast}
+        </div>
+      )}
 
       {/* Reference image preview overlay */}
       {previewRef && (

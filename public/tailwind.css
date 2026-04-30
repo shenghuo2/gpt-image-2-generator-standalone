@@ -243,6 +243,9 @@
   .top-4 {
     top: calc(var(--spacing) * 4);
   }
+  .top-6 {
+    top: calc(var(--spacing) * 6);
+  }
   .top-\[50\%\] {
     top: 50%;
   }
@@ -270,6 +273,9 @@
   .left-0 {
     left: calc(var(--spacing) * 0);
   }
+  .left-1\/2 {
+    left: calc(1 / 2 * 100%);
+  }
   .left-2\.5 {
     left: calc(var(--spacing) * 2.5);
   }
@@ -293,6 +299,9 @@
   }
   .z-\[70\] {
     z-index: 70;
+  }
+  .z-\[80\] {
+    z-index: 80;
   }
   .my-1 {
     margin-block: calc(var(--spacing) * 1);
@@ -515,6 +524,10 @@
   }
   .shrink-0 {
     flex-shrink: 0;
+  }
+  .-translate-x-1\/2 {
+    --tw-translate-x: calc(calc(1 / 2 * 100%) * -1);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
   }
   .translate-x-\[-50\%\] {
     --tw-translate-x: -50%;
@@ -801,6 +814,9 @@
   }
   .py-2 {
     padding-block: calc(var(--spacing) * 2);
+  }
+  .py-2\.5 {
+    padding-block: calc(var(--spacing) * 2.5);
   }
   .py-3 {
     padding-block: calc(var(--spacing) * 3);
