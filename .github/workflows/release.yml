@@ -28,11 +28,51 @@ jobs:
           cd out
           zip -r ../gpt-image-standalone.zip .
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV=$(git tag --sort=-creatordate | head -1)
+          if [ -n "$PREV" ]; then
+            RANGE="$PREV..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+
+          changelog() {
+            local title="$1"; shift
+            local out=$(git log "$RANGE" --pretty=format:'- %s (%h)' --no-merges "$@")
+            if [ -n "$out" ]; then
+              echo "## $title"
+              echo "$out"
+              echo ""
+            fi
+          }
+
+          {
+            echo "下载 zip 解压后，浏览器打开 \`index.html\` 即可离线使用。无需服务器，无需安装依赖。"
+            echo ""
+            changelog "🚀 Features" --grep='^feat'
+            changelog "🐛 Bug Fixes" --grep='^fix'
+            changelog "📝 Docs" --grep='^docs'
+            changelog "🧰 Maintenance" --grep='^ci' --grep='^chore' --grep='^refactor'
+            # Catch-all: commits not matched by any category above
+            local rest=$(git log "$RANGE" --pretty=format:'- %s (%h)' --no-merges --invert-grep --grep='^feat' --grep='^fix' --grep='^docs' --grep='^ci' --grep='^chore' --grep='^refactor')
+            if [ -n "$rest" ]; then
+              echo "## 其他"
+              echo "$rest"
+              echo ""
+            fi
+          } > /tmp/release-body.md
+
+          # Append to GITHUB_OUTPUT using heredoc
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/release-body.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag }}
           name: ${{ github.event.inputs.tag }}
-          body: |
-            下载 zip 解压后，浏览器打开 `index.html` 即可离线使用。无需服务器，无需安装依赖。
+          body: ${{ steps.changelog.outputs.body }}
           files: gpt-image-standalone.zip
