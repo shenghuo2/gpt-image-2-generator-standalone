@@ -1,4 +1,5 @@
 'use client'
+import { useState, type RefObject } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faChevronDown, faCropSimple,
@@ -38,7 +39,8 @@ interface Props {
   quality: Quality; setQuality: (v: Quality) => void
   count: number; setCount: (v: number) => void
   refImages: RefItem[]; addFiles: (files: FileList | File[]) => void
-  removeRef: (id: string) => void; clearRefs: () => void
+  removeRef: (id: string) => void; clearRefs: () => void; onReorderRefs: (from: number, to: number) => void
+  reorderDraggingRef: RefObject<boolean>
   sizeOpen: boolean; setSizeOpen: (v: boolean) => void
   activeProvider: ProviderEntry; concurrency: number; outputSize: string
   loading: boolean; hasPrompt: boolean; apiKey: string
@@ -57,7 +59,7 @@ interface Props {
 
 export function Sidebar({
   prompt, setPrompt, ratio, setRatio, pixelTier, setPixelTier,
-  quality, setQuality, count, setCount, refImages, addFiles, removeRef, clearRefs,
+  quality, setQuality, count, setCount, refImages, addFiles, removeRef, clearRefs, onReorderRefs, reorderDraggingRef,
   sizeOpen, setSizeOpen, activeProvider, concurrency, outputSize,
   loading, hasPrompt, apiKey, handleSubmit, autoOptions, selectedSizeLabel,
   configOpen, setConfigOpen, providers, activeProviderId,
@@ -65,13 +67,16 @@ export function Sidebar({
   maxStorageMB, draftMaxStorageMB, setDraftMaxStorageMB,
   showKey, setShowKey, storageUsage, guideOpen, setGuideOpen, onSaveConfig,
 }: Props) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [previewRefUrl, setPreviewRefUrl] = useState<string | null>(null)
+
   return (
     <aside className="flex w-full lg:w-[400px] shrink-0 flex-col lg:overflow-hidden border-b lg:border-b-0 lg:border-r" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
       <div className="flex-1 overflow-y-auto px-5 pb-4 pt-5 custom-scrollbar">
         {/* Ref images */}
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-medium" style={{ color: '#1a1a1a' }}>参考图片</span>
+            <span className="text-sm font-medium" style={{ color: '#1a1a1a' }}>参考图片<span className="text-[10px] font-normal ml-1" style={{ color: '#bfbfbf' }}>（拖拽可改变顺序）</span></span>
             <span className="text-xs" style={{ color: '#616161' }}>{refImages.length}/16</span>
           </div>
           <button
@@ -83,10 +88,20 @@ export function Sidebar({
           </button>
           {refImages.length > 0 && (
             <div className="mt-2 grid grid-cols-3 gap-2">
-              {refImages.map((item) => (
-                <div key={item.id} className="group relative aspect-square overflow-hidden rounded-lg border" style={{ background: '#ececec', borderColor: 'rgb(0 0 0 / 0.08)' }}>
-                  <img src={item.url} alt="" className="h-full w-full object-cover" />
-                  <button onClick={() => removeRef(item.id)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white">
+              {refImages.map((item, idx) => (
+                <div
+                  key={item.id}
+                  draggable
+                  onDragStart={() => { reorderDraggingRef.current = true; setDragIdx(idx) }}
+                  onDragOver={(e) => { e.preventDefault(); if (dragIdx != null && dragIdx !== idx) { onReorderRefs(dragIdx, idx); setDragIdx(idx) } }}
+                  onDragEnd={() => { reorderDraggingRef.current = false; setDragIdx(null) }}
+                  onDrop={(e) => e.preventDefault()}
+                  onClick={() => setPreviewRefUrl(item.url)}
+                  className={`group relative aspect-square overflow-hidden rounded-lg border transition-opacity duration-150 ${dragIdx === idx ? 'opacity-40' : ''}`}
+                  style={{ background: '#ececec', borderColor: 'rgb(0 0 0 / 0.08)', cursor: 'pointer' }}
+                >
+                  <img src={item.url} alt="" className="h-full w-full object-cover pointer-events-none" />
+                  <button onClick={(e) => { e.stopPropagation(); removeRef(item.id) }} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white">
                     <FontAwesomeIcon icon={faXmark} className="h-3 w-3" />
                   </button>
                 </div>
@@ -211,6 +226,15 @@ export function Sidebar({
       </div>
 
       <UsageGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
+
+      {previewRefUrl && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={() => setPreviewRefUrl(null)}>
+          <button onClick={() => setPreviewRefUrl(null)} className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors">
+            <FontAwesomeIcon icon={faXmark} className="h-5 w-5" />
+          </button>
+          <img src={previewRefUrl} alt="" className="max-w-full max-h-full object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
 
       {configOpen && (
         <ConfigModal

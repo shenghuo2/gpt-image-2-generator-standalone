@@ -77,6 +77,7 @@ export function ImageGenerator() {
   const [guideOpen, setGuideOpen] = useState(false)
   const refImagesRef = useRef<RefItem[]>([])
   const submittingRef = useRef(false)
+  const reorderDraggingRef = useRef(false)
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const valid = Array.from(files).filter((file) => file.type.startsWith('image/'))
@@ -270,6 +271,15 @@ export function ImageGenerator() {
 
   const clearRefs = () => { refImages.forEach((item) => URL.revokeObjectURL(item.url)); setRefImages([]) }
 
+  const reorderRefs = (from: number, to: number) => {
+    setRefImages(prev => {
+      const next = [...prev]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
+  }
+
   const hasPrompt = prompt.trim().length > 0
   const selectedSizeLabel = ratio === 'auto'
     ? (autoOptions[0] ? `${autoOptions[0].title}（${autoOptions[0].subtitle}）` : 'auto')
@@ -291,9 +301,9 @@ export function ImageGenerator() {
       <NavBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
       <div className="flex flex-col lg:flex-row lg:overflow-hidden" style={{ flex: 1, minHeight: 0, background: '#f5f5f5' }}
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setIsDragging(false); addFiles(e.dataTransfer.files) }}
+        onDragOver={(e) => { e.preventDefault(); if (!reorderDraggingRef.current) setIsDragging(true) }}
+        onDragLeave={() => { if (!reorderDraggingRef.current) setIsDragging(false) }}
+        onDrop={(e) => { e.preventDefault(); setIsDragging(false); if (!reorderDraggingRef.current) addFiles(e.dataTransfer.files) }}
       >
         {isDragging && (
           <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/5 backdrop-blur-sm">
@@ -307,7 +317,7 @@ export function ImageGenerator() {
           pixelTier={pixelTier} setPixelTier={setPixelTier}
           quality={quality} setQuality={setQuality}
           count={count} setCount={setCount}
-          refImages={refImages} addFiles={addFiles} removeRef={removeRef} clearRefs={clearRefs}
+          refImages={refImages} addFiles={addFiles} removeRef={removeRef} clearRefs={clearRefs} onReorderRefs={reorderRefs} reorderDraggingRef={reorderDraggingRef}
           sizeOpen={sizeOpen} setSizeOpen={setSizeOpen}
           activeProvider={activeProvider} concurrency={concurrency} outputSize={outputSize}
           loading={loading} hasPrompt={hasPrompt} apiKey={activeProvider.apiKey}
