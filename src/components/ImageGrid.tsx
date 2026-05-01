@@ -187,7 +187,7 @@ export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history, multi
             <>
               <div className={horizontal ? 'flex' : ''}>
                 {item.images.map((url, i) => (
-                  <div key={i} className={horizontal ? 'relative min-w-0 flex-1' : ''} style={isMulti && i < item.images.length - 1 ? (horizontal ? { borderRight: '2px solid rgba(255,255,255,0.8)', boxShadow: '2px 0 4px rgba(0,0,0,0.2)' } : { borderBottom: '2px solid rgba(255,255,255,0.8)', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }) : undefined} onClick={horizontal ? (e) => { e.stopPropagation(); onCardClick(item, i) } : undefined}>
+                  <div key={i} className={horizontal ? 'relative min-w-0 flex-1' : ''} style={isMulti && i < item.images.length - 1 ? (horizontal ? { borderRight: '2px solid rgba(255,255,255,0.8)', boxShadow: '2px 0 4px rgba(0,0,0,0.2)' } : { borderBottom: '2px solid rgba(255,255,255,0.8)', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }) : undefined} onClick={isMulti ? (e) => { e.stopPropagation(); onCardClick(item, i) } : undefined}>
                     <img
                       loading="lazy"
                       src={url}

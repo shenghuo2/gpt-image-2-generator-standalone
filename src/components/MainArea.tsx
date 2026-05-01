@@ -81,6 +81,7 @@ export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, qual
       </div>
 
       <ImagePreviewModal
+        key={preview?.id ? `${preview.id}-${previewImageIndex}` : undefined}
         item={preview}
         initialImageIndex={previewImageIndex}
         onClose={() => setPreview(null)}
