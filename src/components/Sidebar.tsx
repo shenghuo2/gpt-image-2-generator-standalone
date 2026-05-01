@@ -98,14 +98,16 @@ export function Sidebar({
     const update = () => {
       const rect = sizeButtonRef.current?.getBoundingClientRect()
       if (!rect) return
+      const menuW = 186
       const menuH = sizeMenuRef.current?.offsetHeight || 400
       const spaceBelow = window.innerHeight - rect.bottom - 8
       const spaceAbove = rect.top - 8
       const openAbove = spaceBelow < Math.min(menuH, 300) && spaceAbove > spaceBelow
       const maxH = openAbove ? spaceAbove : spaceBelow
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuW - 8))
       setSizeMenuStyle(openAbove
-        ? { bottom: window.innerHeight - rect.top + 4, left: rect.left, maxHeight: maxH }
-        : { top: rect.bottom + 4, left: rect.left, maxHeight: maxH })
+        ? { bottom: window.innerHeight - rect.top + 4, left, maxHeight: maxH }
+        : { top: rect.bottom + 4, left, maxHeight: maxH })
     }
     update()
     window.addEventListener('resize', update)
@@ -170,7 +172,7 @@ export function Sidebar({
         </div>
 
         {/* Controls: count + size + pixel */}
-        <div className="mb-4 flex items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <div className="flex h-10 items-center overflow-hidden rounded-lg" style={{ background: 'rgb(0 0 0 / 0.04)' }}>
             <button onClick={() => setCount(clamp(count - 1))} className="flex h-10 w-9 items-center justify-center text-sm hover:bg-black/10 transition-colors duration-150" style={{ color: '#616161' }}>
               <FontAwesomeIcon icon={faMinus} className="h-3 w-3" />
@@ -235,15 +237,15 @@ export function Sidebar({
               <input value={customSize.w || ''} onChange={(e) => setCustomSize({ ...customSize, w: Number(e.target.value) || 0 })}
                 onBlur={() => setCustomSize({ ...customSize, w: round16(Math.max(16, customSize.w)) })}
                 type="number" min={16} step={16} placeholder="宽"
-                className="h-10 w-24 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
+                className="h-10 min-w-0 flex-1 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                 style={{ background: '#fff', borderColor: customSizeErrors.length ? 'rgb(211 72 43 / 0.5)' : 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
-              <span className="text-sm font-medium" style={{ color: '#919191' }}>×</span>
+              <span className="text-sm font-medium shrink-0" style={{ color: '#919191' }}>×</span>
               <input value={customSize.h || ''} onChange={(e) => setCustomSize({ ...customSize, h: Number(e.target.value) || 0 })}
                 onBlur={() => setCustomSize({ ...customSize, h: round16(Math.max(16, customSize.h)) })}
                 type="number" min={16} step={16} placeholder="高"
-                className="h-10 w-24 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
+                className="h-10 min-w-0 flex-1 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                 style={{ background: '#fff', borderColor: customSizeErrors.length ? 'rgb(211 72 43 / 0.5)' : 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
-              <span className="text-[10px]" style={{ color: '#919191' }}>{(round16(customSize.w) * round16(customSize.h) / 1000000).toFixed(2)}M px</span>
+              <span className="text-[10px] shrink-0" style={{ color: '#919191' }}>{(round16(customSize.w) * round16(customSize.h) / 1000000).toFixed(2)}M px</span>
             </div>
             {customSizeErrors.length > 0 && (
               <div className="mt-1.5 flex flex-col gap-0.5">

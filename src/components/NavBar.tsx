@@ -18,7 +18,7 @@ export function NavBar({ searchQuery, setSearchQuery }: Props) {
         </span>
       </div>
       <div className="flex-1 flex items-center min-w-0 gap-2 px-3 lg:px-4">
-        <div className="relative w-[120px] lg:w-[220px]">
+        <div className="relative max-w-[120px] lg:max-w-[220px] flex-1 min-w-0">
           <FontAwesomeIcon icon={faSearch} className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 pointer-events-none" style={{ color: '#919191' }} />
           <input
             value={searchQuery}

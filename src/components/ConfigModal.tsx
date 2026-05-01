@@ -18,6 +18,10 @@ interface Props {
   onClose: () => void; onSave: () => void
 }
 
+function scrollIntoView(e: React.FocusEvent<HTMLInputElement>) {
+  setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)
+}
+
 export function ConfigModal({ activeProvider, draftProviders, setDraftProviders, draftActiveId, setDraftActiveId, draftMaxStorageMB, setDraftMaxStorageMB, draftMaxHistoryItems, setDraftMaxHistoryItems, draftMultiImageLayout, setDraftMultiImageLayout, historyCount, localStorageUsage, imageCount, showKey, setShowKey, storageUsage, setGuideOpen, onClose, onSave }: Props) {
   const apiKey = activeProvider.apiKey
 
@@ -99,7 +103,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                 {!isBuiltin && (
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>名称</span>
-                    <input value={dp.name} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, name: e.target.value } : p))}
+                    <input value={dp.name} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, name: e.target.value } : p))} onFocus={scrollIntoView}
                       className="w-full h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                       style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} placeholder="供应商名称" />
                   </label>
@@ -108,7 +112,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                   <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>API Key</span>
                   <div className="relative">
                     <FontAwesomeIcon icon={faKey} className="absolute left-3 top-3.5 h-3.5 w-3.5" style={{ color: '#616161' }} />
-                    <input value={dp.apiKey} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, apiKey: e.target.value } : p))}
+                    <input value={dp.apiKey} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, apiKey: e.target.value } : p))} onFocus={scrollIntoView}
                       type={showKey ? 'text' : 'password'}
                       className="w-full h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                       style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a', paddingLeft: '2rem', paddingRight: '2.5rem' }} placeholder="sk-..." />
@@ -125,7 +129,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                   <>
                     <label className="block">
                       <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>Base URL</span>
-                      <input value={dp.baseUrl} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, baseUrl: e.target.value } : p))}
+                      <input value={dp.baseUrl} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, baseUrl: e.target.value } : p))} onFocus={scrollIntoView}
                         className="w-full h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                         style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} placeholder="https://" />
                     </label>
@@ -139,7 +143,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                 )}
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>最大并发数</span>
-                  <input value={dp.maxConcurrency} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, maxConcurrency: Math.max(1, Math.min(10, Number(e.target.value) || 1)) } : p))}
+                  <input value={dp.maxConcurrency} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, maxConcurrency: Math.max(1, Math.min(10, Number(e.target.value) || 1)) } : p))} onFocus={scrollIntoView}
                     type="number" min={1} max={10}
                     className="w-20 h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                     style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
@@ -151,7 +155,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
           <label className="block">
             <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>最大存储上限 (MB)</span>
             <div className="flex items-center gap-2">
-              <input value={draftMaxStorageMB || ''} onChange={(e) => setDraftMaxStorageMB(Number(e.target.value) || 0)} onBlur={() => setDraftMaxStorageMB(Math.max(10, draftMaxStorageMB))} type="number" min={10}
+              <input value={draftMaxStorageMB || ''} onChange={(e) => setDraftMaxStorageMB(Number(e.target.value) || 0)} onBlur={() => setDraftMaxStorageMB(Math.max(10, draftMaxStorageMB))} onFocus={scrollIntoView} type="number" min={10}
                 className="w-28 h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                 style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
               <span className="text-xs" style={{ color: '#919191' }}>当前已用 {(storageUsage / 1024 / 1024).toFixed(1)} MB · {imageCount} 张图片</span>
@@ -161,7 +165,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
           <label className="block">
             <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>最大历史条数</span>
             <div className="flex items-center gap-2">
-              <input value={draftMaxHistoryItems || ''} onChange={(e) => setDraftMaxHistoryItems(Math.min(500, Number(e.target.value) || 0))} onBlur={() => setDraftMaxHistoryItems(Math.max(10, draftMaxHistoryItems))} type="number" min={10} max={500}
+              <input value={draftMaxHistoryItems || ''} onChange={(e) => setDraftMaxHistoryItems(Math.min(500, Number(e.target.value) || 0))} onBlur={() => setDraftMaxHistoryItems(Math.max(10, draftMaxHistoryItems))} onFocus={scrollIntoView} type="number" min={10} max={500}
                 className="w-28 h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                 style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
               <span className="text-xs" style={{ color: '#919191' }}>当前 {historyCount} 条 · 占用 {(localStorageUsage.usedBytes / 1024).toFixed(1)} KB / {(localStorageUsage.quotaBytes / 1024 / 1024).toFixed(1)} MB</span>
