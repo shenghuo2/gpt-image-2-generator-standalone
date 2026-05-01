@@ -58,7 +58,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
               <button
                 onClick={() => {
                   const id = `custom_${Date.now()}`
-                  setDraftProviders([...draftProviders, { id, name: '自定义', apiKey: '', baseUrl: 'https://', supportsResponseFormat: false }])
+                  setDraftProviders([...draftProviders, { id, name: '自定义', apiKey: '', baseUrl: 'https://', supportsResponseFormat: false, maxConcurrency: 1 }])
                   setDraftActiveId(id)
                 }}
                 className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-black/10 transition-colors" title="添加自定义供应商"
@@ -137,6 +137,13 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                     </label>
                   </>
                 )}
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>最大并发数</span>
+                  <input value={dp.maxConcurrency} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, maxConcurrency: Math.max(1, Math.min(10, Number(e.target.value) || 1)) } : p))}
+                    type="number" min={1} max={10}
+                    className="w-20 h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
+                    style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
+                </label>
               </>
             )
           })()}

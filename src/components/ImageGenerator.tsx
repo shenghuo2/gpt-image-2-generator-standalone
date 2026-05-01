@@ -146,7 +146,7 @@ export function ImageGenerator() {
     () => ratio === 'custom' ? `${round16(customSize.w)}x${round16(customSize.h)}` : sizeFromRatio(activeRatio, pixelTier, DEFAULTS.supportsCustomSize),
     [ratio, customSize, activeRatio, pixelTier]
   )
-  const concurrency = Math.min(DEFAULTS.maxConcurrency, count)
+  const concurrency = Math.min(activeProvider.maxConcurrency || 1, count)
 
   const visibleHistory = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()

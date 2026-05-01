@@ -3,7 +3,6 @@ const DEFAULTS = {
   generatePath: '/v1/images/generations',
   editPath: '/v1/images/edits',
   supportsCustomSize: true,
-  maxConcurrency: 3,
   defaultQuality: 'medium' as const,
   defaultEstimateSeconds: 60,
 }
@@ -16,6 +15,7 @@ export interface ProviderEntry {
   apiKey: string
   baseUrl: string
   supportsResponseFormat: boolean
+  maxConcurrency: number
 }
 
 export type MultiImageLayout = 'horizontal' | 'vertical'
@@ -29,8 +29,8 @@ export interface StandaloneConfig {
 }
 
 export const BUILTIN_PROVIDERS: ProviderEntry[] = [
-  { id: 'nowcoding', name: 'NowCoding', apiKey: '', baseUrl: 'https://nowcoding.ai', supportsResponseFormat: true },
-  { id: 'yunwu', name: 'YunWu', apiKey: '', baseUrl: 'https://yunwu.ai', supportsResponseFormat: false },
+  { id: 'nowcoding', name: 'NowCoding', apiKey: '', baseUrl: 'https://nowcoding.ai', supportsResponseFormat: true, maxConcurrency: 4 },
+  { id: 'yunwu', name: 'YunWu', apiKey: '', baseUrl: 'https://yunwu.ai', supportsResponseFormat: false, maxConcurrency: 1 },
 ]
 
 const CUSTOM_PROVIDER_ID = '__custom__'
@@ -62,7 +62,7 @@ function migrateLegacy(raw: Record<string, unknown>): StandaloneConfig {
     cfg.activeProviderId = matched.id
   } else if (apiKey) {
     // Custom provider — add it
-    cfg.providers.push({ id: CUSTOM_PROVIDER_ID, name: '自定义', apiKey, baseUrl, supportsResponseFormat: false })
+    cfg.providers.push({ id: CUSTOM_PROVIDER_ID, name: '自定义', apiKey, baseUrl, supportsResponseFormat: false, maxConcurrency: 1 })
     cfg.activeProviderId = CUSTOM_PROVIDER_ID
   }
   cfg.maxStorageMB = maxStorageMB
@@ -88,7 +88,7 @@ export function loadConfig(): StandaloneConfig {
       // Preserve custom providers
       for (const p of (raw.providers as ProviderEntry[])) {
         if (!merged.providers.find(m => m.id === p.id)) {
-          merged.providers.push({ ...p, supportsResponseFormat: p.supportsResponseFormat ?? false })
+          merged.providers.push({ ...p, supportsResponseFormat: p.supportsResponseFormat ?? false, maxConcurrency: p.maxConcurrency ?? 1 })
         }
       }
       merged.activeProviderId = raw.activeProviderId as string
