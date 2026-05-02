@@ -129,7 +129,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                   <>
                     <label className="block">
                       <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>Base URL</span>
-                      <input value={dp.baseUrl} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, baseUrl: e.target.value } : p))} onFocus={scrollIntoView}
+                      <input value={dp.baseUrl} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, baseUrl: e.target.value } : p))} onBlur={(e) => { const cleaned = e.target.value.trim().replace(/\/+$/, '').replace(/\/v1$/i, ''); setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, baseUrl: cleaned } : p)) }} onFocus={scrollIntoView}
                         className="w-full h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                         style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} placeholder="https://" />
                     </label>
