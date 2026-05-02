@@ -23,6 +23,12 @@ const PIXEL_TIERS: Array<{ value: PixelTier; label: string; estimate: string }> 
   { value: '4k', label: '4K', estimate: '~120s' },
 ]
 
+const APPROX_RATIO_HINT: Record<string, string> = {
+  '16:9': '16px 对齐约束下该比例为最优近似（误差 <0.4%）',
+  '9:16': '16px 对齐约束下该比例为最优近似（误差 <0.4%）',
+  '3:4': '16px 对齐约束下部分档位为近似值（误差 <0.5%）',
+}
+
 function clamp(value: number) { return Math.max(1, Math.min(10, value)) }
 
 interface Props {
@@ -229,6 +235,9 @@ export function Sidebar({
         </div>
         {visibleTiers.length < 3 && ratio !== 'custom' && (
           <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#d3482b' }}>因最大边长限制（&lt; 3840px），该比例仅支持最高 2K 分辨率</p>
+        )}
+        {APPROX_RATIO_HINT[ratio] && (
+          <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#919191' }}>{APPROX_RATIO_HINT[ratio]}</p>
         )}
 
         {ratio === 'custom' && (
