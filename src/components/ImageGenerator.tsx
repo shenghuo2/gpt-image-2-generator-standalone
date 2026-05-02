@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { simplifyRatio, sizeFromRatio, validateSize, round16, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
+import { snapRatioToStandard, sizeFromRatio, validateSize, round16, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
 import { DEFAULTS, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, type StandaloneConfig, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import { generateImage, editImage } from '@/lib/api-client'
 import { saveImages, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage, getImageCount } from '@/lib/db'
@@ -126,7 +126,7 @@ export function ImageGenerator() {
 
   const autoOptions = useMemo(
     () => refImages.map((item, index) => item.width && item.height
-      ? { value: `auto:${item.id}`, title: `auto-${simplifyRatio(item.width, item.height)}`, subtitle: `图${chineseIndex(index)}`, ratio: simplifyRatio(item.width, item.height) }
+      ? { value: `auto:${item.id}`, title: `auto-${snapRatioToStandard(item.width, item.height)}`, subtitle: `图${chineseIndex(index)}`, ratio: snapRatioToStandard(item.width, item.height) }
       : null).filter(Boolean) as Array<{ value: string; title: string; subtitle: string; ratio: string }>,
     [refImages]
   )

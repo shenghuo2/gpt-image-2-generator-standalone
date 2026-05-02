@@ -74,6 +74,18 @@ export function simplifyRatio(width: number, height: number) {
   return `${Math.round(width) / divisor}:${Math.round(height) / divisor}`
 }
 
+export function snapRatioToStandard(width: number, height: number): AspectRatio {
+  const target = width / height
+  let best: AspectRatio = '1:1'
+  let bestErr = Infinity
+  for (const opt of RATIO_OPTIONS) {
+    if (opt.value === 'auto') continue
+    const err = Math.abs(opt.w / opt.h - target)
+    if (err < bestErr) { bestErr = err; best = opt.value }
+  }
+  return best
+}
+
 export function sizeFromRatio(ratio: string, tier: PixelTier, supportsCustomSize: boolean) {
   if (!supportsCustomSize) return FALLBACK_SIZE_MAP[ratio] ?? '1024x1024'
 
@@ -149,7 +161,7 @@ export function sizeFromRatio(ratio: string, tier: PixelTier, supportsCustomSize
   approxCands.sort((a, b) => sortKey(a) - sortKey(b))
 
   if (exactCands.length === 0 && approxCands.length > 0) {
-    for (const c of approxCands) add(exactCands, c.w, c.h, false)
+    exactCands.push(...approxCands)
     exactCands.sort((a, b) => sortKey(a) - sortKey(b))
   }
 
