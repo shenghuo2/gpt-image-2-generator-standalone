@@ -213,6 +213,7 @@ export function ImageGenerator() {
       const urls: Array<string | null> = Array(batch.length).fill(null)
       const errors: string[] = []
       let cursor = 0
+      const frozenRefs = [...refImagesRef.current]
       const workers = Array.from({ length: snap.concurrency }, async () => {
         while (cursor < batch.length) {
           const job = batch[cursor]
@@ -221,7 +222,7 @@ export function ImageGenerator() {
           try {
             const auth = { apiKey: snap.apiKey, baseUrl: snap.baseUrl, supportsResponseFormat: snap.providerSupportsResponseFormat }
             const url = snap.isEdit
-              ? await editImage(auth, { prompt: job.prompt!, quality: snap.quality, size: snap.outputSize, images: refImagesRef.current })
+              ? await editImage(auth, { prompt: job.prompt!, quality: snap.quality, size: snap.outputSize, images: frozenRefs })
               : await generateImage(auth, { prompt: job.prompt!, quality: snap.quality, size: snap.outputSize })
             updateJob(job.id, { status: 'success', url })
             urls[job.index] = url
