@@ -28,7 +28,19 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Resolve app version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
       - run: npm run build
+        env:
+          NEXT_PUBLIC_APP_VERSION: ${{ steps.version.outputs.version }}
 
       - uses: actions/configure-pages@v4
 

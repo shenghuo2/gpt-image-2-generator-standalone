@@ -7,6 +7,8 @@ interface Props {
   setSearchQuery: (v: string) => void
 }
 
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION
+
 export function NavBar({ searchQuery, setSearchQuery }: Props) {
   return (
     <nav className="flex h-12 shrink-0 items-center border-b" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.08)' }}>
@@ -15,6 +17,9 @@ export function NavBar({ searchQuery, setSearchQuery }: Props) {
         <span className="text-[13px] font-semibold truncate" style={{ color: '#1a1a1a' }}>
           <span className="hidden lg:inline">shenghuo2 的 GPT-image-2 图片生成站</span>
           <span className="lg:hidden">生蚝的生图站</span>
+          {APP_VERSION && (
+            <span className="ml-2 text-[11px] font-normal" style={{ color: '#919191' }}>{APP_VERSION}</span>
+          )}
         </span>
       </div>
       <div className="flex-1 flex items-center min-w-0 gap-2 px-3 lg:px-4">
