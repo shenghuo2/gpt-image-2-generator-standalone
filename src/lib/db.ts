@@ -18,22 +18,29 @@ function openDB(): Promise<IDBDatabase> {
 
 // === Images store (key: `${historyId}_${index}`) ===
 
-export async function saveImages(historyId: string, urls: string[]) {
+export async function saveImage(historyId: string, index: number, url: string) {
   const db = await openDB()
+  try {
+    const resp = await fetch(url)
+    const blob = await resp.blob()
+    await new Promise<void>((resolve, reject) => {
+      const txn = db.transaction(IMAGE_STORE, 'readwrite')
+      const store = txn.objectStore(IMAGE_STORE)
+      store.put(blob, `${historyId}_${index}`)
+      txn.oncomplete = () => resolve()
+      txn.onerror = () => reject(txn.error)
+    })
+    return true
+  } catch (e) {
+    console.error('saveImage failed for index', index, e)
+    return false
+  }
+}
+
+export async function saveImages(historyId: string, urls: string[]) {
   let saved = 0
   for (let i = 0; i < urls.length; i++) {
-    try {
-      const resp = await fetch(urls[i])
-      const blob = await resp.blob()
-      await new Promise<void>((resolve, reject) => {
-        const txn = db.transaction(IMAGE_STORE, 'readwrite')
-        const store = txn.objectStore(IMAGE_STORE)
-        store.put(blob, `${historyId}_${i}`)
-        txn.oncomplete = () => resolve()
-        txn.onerror = () => reject(txn.error)
-      })
-      saved++
-    } catch (e) { console.error('saveImages failed for index', i, e) }
+    if (await saveImage(historyId, i, urls[i])) saved++
   }
   return saved
 }

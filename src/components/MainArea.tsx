@@ -30,9 +30,10 @@ interface Props {
   setPixelTier: (v: PixelTier) => void
   warnings: string[]
   multiImageLayout: MultiImageLayout
+  onRetrySuccess: (job: ImageJob, url: string) => Promise<void>
 }
 
-export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout }: Props) {
+export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout, onRetrySuccess }: Props) {
   const [previewImageIndex, setPreviewImageIndex] = useState(0)
   return (
     <main className="flex min-w-0 flex-1 flex-col relative" style={{ background: '#f5f5f5' }}>
@@ -69,6 +70,7 @@ export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, qual
                     ? await editImage(auth, { prompt: job.prompt!, quality: jobQuality, size: jobSize, images: refImages as Array<{ file: File }> })
                     : await generateImage(auth, { prompt: job.prompt!, quality: jobQuality, size: jobSize })
                   updateJob(job.id, { status: 'success', url })
+                  await onRetrySuccess(job, url)
                 } catch (error) {
                   const msg = error instanceof Error ? error.message : '未知错误'
                   const isNetwork = error instanceof TypeError

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { snapRatioToStandard, sizeFromRatio, validateSize, round16, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
 import { DEFAULTS, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, type StandaloneConfig, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import { generateImage, editImage } from '@/lib/api-client'
-import { saveImages, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage, getImageCount } from '@/lib/db'
+import { saveImage, saveImages, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage, getImageCount } from '@/lib/db'
 import { makeId } from '@/lib/id'
 import type { HistoryItem, RefItem } from '@/lib/types'
 import { NavBar } from './NavBar'
@@ -69,6 +69,8 @@ export function ImageGenerator() {
   const [localStorageUsage, setLocalStorageUsage] = useState(() => getLocalStorageUsage())
   const [guideOpen, setGuideOpen] = useState(false)
   const refImagesRef = useRef<RefItem[]>([])
+  const historyRef = useRef<HistoryItem[]>([])
+  const retryPersistenceRef = useRef(Promise.resolve())
   const submittingRef = useRef(false)
   const reorderDraggingRef = useRef(false)
   const onReorderActive = (v: boolean) => { reorderDraggingRef.current = v }
@@ -104,6 +106,7 @@ export function ImageGenerator() {
   }, [addFiles])
 
   useEffect(() => { refImagesRef.current = refImages }, [refImages])
+  useEffect(() => { historyRef.current = history }, [history])
   useEffect(() => { return () => refImagesRef.current.forEach((item) => URL.revokeObjectURL(item.url)) }, [])
 
   useEffect(() => {
@@ -268,6 +271,34 @@ export function ImageGenerator() {
     setLocalStorageUsage(getLocalStorageUsage())
   }
 
+  const persistRetriedImage = useCallback(async (job: ImageJob, url: string) => {
+    retryPersistenceRef.current = retryPersistenceRef.current.catch(() => undefined).then(async () => {
+      try {
+        const batchId = job.id.split(':')[0]
+        const current = historyRef.current
+        const item = current.find(p => p.id === batchId)
+        if (!item) return
+
+        const imageIndex = item.images.length
+        const saved = await saveImage(batchId, imageIndex, url)
+        if (!saved) return
+
+        const latest = historyRef.current
+        const next = latest.map(p => p.id !== batchId ? p : { ...p, images: [...p.images, url], error: undefined })
+        historyRef.current = next
+        saveHistory(next)
+        setHistory(next)
+        setJobs(prev => prev.filter(j => j.id !== job.id))
+        setStorageUsage(await getStorageUsage())
+        setImageCount(await getImageCount())
+        setLocalStorageUsage(getLocalStorageUsage())
+      } catch (error) {
+        console.error('persistRetriedImage failed', error)
+      }
+    })
+    return retryPersistenceRef.current
+  }, [])
+
   const removeRef = (id: string) => {
     setRefImages((items) => { const item = items.find((c) => c.id === id); if (item) URL.revokeObjectURL(item.url); return items.filter((c) => c.id !== id) })
   }
@@ -370,6 +401,7 @@ export function ImageGenerator() {
           setPixelTier={setPixelTier}
           warnings={warnings}
           multiImageLayout={multiImageLayout}
+          onRetrySuccess={persistRetriedImage}
         />
       </div>
 
