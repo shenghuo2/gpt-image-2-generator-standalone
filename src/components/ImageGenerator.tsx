@@ -8,7 +8,7 @@ import { makeId } from '@/lib/id'
 import type { HistoryItem, RefItem } from '@/lib/types'
 import { NavBar } from './NavBar'
 import { Sidebar } from './Sidebar'
-import { MainArea } from './MainArea'
+import { MainArea, type WarningItem } from './MainArea'
 import type { ImageJob } from './ImageGrid'
 
 function chineseIndex(index: number) {
@@ -16,6 +16,7 @@ function chineseIndex(index: number) {
 }
 
 const PROMPT_HISTORY_KEY = 'gpt-image-prompt-history'
+const CLEANUP_MIN_IMAGES = 5
 
 function loadPromptHistory(): HistoryItem[] {
   if (typeof window === 'undefined') return []
@@ -34,6 +35,20 @@ function saveHistory(items: HistoryItem[]) {
     images: images.length ? new Array(images.length).fill('') : [],
   }))
   localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(stripped))
+}
+
+function getOldestImageDeletePlan(items: HistoryItem[], minImages = CLEANUP_MIN_IMAGES) {
+  const ids: string[] = []
+  let imageCount = 0
+
+  for (let i = items.length - 1; i >= 0 && imageCount < minImages; i--) {
+    const item = items[i]
+    if (item.images.length === 0) continue
+    ids.push(item.id)
+    imageCount += item.images.length
+  }
+
+  return { ids, imageCount, recordCount: ids.length }
 }
 
 export function ImageGenerator() {
@@ -271,6 +286,24 @@ export function ImageGenerator() {
     setLocalStorageUsage(getLocalStorageUsage())
   }
 
+  const deleteOldestImageRecords = useCallback(async () => {
+    const current = historyRef.current
+    const plan = getOldestImageDeletePlan(current)
+    if (!plan.ids.length) return
+
+    for (const id of plan.ids) await deleteImages(id)
+
+    const deletedIds = new Set(plan.ids)
+    const next = current.filter(item => !deletedIds.has(item.id))
+    historyRef.current = next
+    saveHistory(next)
+    setHistory(next)
+    setPreview(prev => prev && deletedIds.has(prev.id) ? null : prev)
+    setStorageUsage(await getStorageUsage())
+    setImageCount(await getImageCount())
+    setLocalStorageUsage(getLocalStorageUsage())
+  }, [])
+
   const persistRetriedImage = useCallback(async (job: ImageJob, url: string) => {
     retryPersistenceRef.current = retryPersistenceRef.current.catch(() => undefined).then(async () => {
       try {
@@ -322,16 +355,27 @@ export function ImageGenerator() {
       ? (autoOptions[0] ? `${autoOptions[0].title}（${autoOptions[0].subtitle}）` : 'auto')
       : autoOptions.find((option) => option.value === ratio)?.title || ratio
 
+  const imageCleanupPlan = useMemo(() => getOldestImageDeletePlan(history), [history])
+
   const warnings = useMemo(() => {
-    const msgs: string[] = []
-    if (storageUsage >= maxStorageMB * 0.9 * 1024 * 1024)
-      msgs.push(`图片存储即将达到上限（${(storageUsage / 1024 / 1024).toFixed(1)} / ${maxStorageMB} MB，共 ${imageCount} 张）`)
+    const msgs: WarningItem[] = []
+    if (storageUsage >= maxStorageMB * 0.9 * 1024 * 1024) {
+      const isOverLimit = storageUsage > maxStorageMB * 1024 * 1024
+      const cleanupHint = imageCleanupPlan.imageCount > 0
+        ? `，可删除最旧 ${imageCleanupPlan.imageCount} 张（${imageCleanupPlan.recordCount} 条记录）释放空间`
+        : ''
+      msgs.push({
+        id: 'image-storage',
+        message: `图片存储${isOverLimit ? '已超过' : '即将达到'}上限（${(storageUsage / 1024 / 1024).toFixed(1)} / ${maxStorageMB} MB，共 ${imageCount} 张）${cleanupHint}`,
+        actionLabel: imageCleanupPlan.imageCount > 0 ? `删除 ${imageCleanupPlan.imageCount} 张` : undefined,
+      })
+    }
     if (history.length >= maxHistoryItems * 0.9)
-      msgs.push(`历史记录即将达到上限（${history.length} / ${maxHistoryItems} 条），最早的记录将被自动清理`)
+      msgs.push({ id: 'history', message: `历史记录即将达到上限（${history.length} / ${maxHistoryItems} 条），最早的记录将被自动清理` })
     if (localStorageUsage.usedBytes >= localStorageUsage.quotaBytes * 0.8)
-      msgs.push(`浏览器本地存储空间即将用尽（${(localStorageUsage.usedBytes / 1024).toFixed(0)} KB / ${(localStorageUsage.quotaBytes / 1024 / 1024).toFixed(1)} MB）`)
+      msgs.push({ id: 'local-storage', message: `浏览器本地存储空间即将用尽（${(localStorageUsage.usedBytes / 1024).toFixed(0)} KB / ${(localStorageUsage.quotaBytes / 1024 / 1024).toFixed(1)} MB）` })
     return msgs
-  }, [storageUsage, maxStorageMB, imageCount, history.length, maxHistoryItems, localStorageUsage])
+  }, [storageUsage, maxStorageMB, imageCount, imageCleanupPlan, history.length, maxHistoryItems, localStorageUsage])
 
   const handleSaveConfig = () => {
     const cfg: StandaloneConfig = { providers: draftProviders, activeProviderId: draftActiveId, maxStorageMB: draftMaxStorageMB, maxHistoryItems: draftMaxHistoryItems, multiImageLayout: draftMultiImageLayout }
@@ -402,6 +446,7 @@ export function ImageGenerator() {
           warnings={warnings}
           multiImageLayout={multiImageLayout}
           onRetrySuccess={persistRetriedImage}
+          onDeleteOldestImages={deleteOldestImageRecords}
         />
       </div>
 

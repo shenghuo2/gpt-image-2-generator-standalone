@@ -10,6 +10,12 @@ import type { HistoryItem } from '@/lib/types'
 import type { ProviderEntry, MultiImageLayout } from '@/lib/config'
 import type { Quality, PixelTier } from '@/lib/provider-settings'
 
+export interface WarningItem {
+  id: string
+  message: string
+  actionLabel?: string
+}
+
 interface Props {
   jobs: ImageJob[]
   updateJob: (id: string, patch: Partial<ImageJob>) => void
@@ -28,22 +34,32 @@ interface Props {
   setQuality: (v: Quality) => void
   setCount: (v: number) => void
   setPixelTier: (v: PixelTier) => void
-  warnings: string[]
+  warnings: WarningItem[]
   multiImageLayout: MultiImageLayout
   onRetrySuccess: (job: ImageJob, url: string) => Promise<void>
+  onDeleteOldestImages: () => void
 }
 
-export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout, onRetrySuccess }: Props) {
+export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout, onRetrySuccess, onDeleteOldestImages }: Props) {
   const [previewImageIndex, setPreviewImageIndex] = useState(0)
   return (
     <main className="flex min-w-0 flex-1 flex-col relative" style={{ background: '#f5f5f5' }}>
       <div className="flex-1 overflow-y-auto p-6">
         {warnings.length > 0 && (
           <div className="flex flex-col gap-2 mb-4">
-            {warnings.map((msg, i) => (
-              <div key={i} className="flex items-center gap-2.5 rounded-xl px-4 py-2.5" style={{ background: 'rgb(211 72 43 / 0.08)', border: '1px solid rgb(211 72 43 / 0.2)' }}>
+            {warnings.map((warning) => (
+              <div key={warning.id} className="flex flex-wrap items-center gap-2.5 rounded-xl px-4 py-2.5" style={{ background: 'rgb(211 72 43 / 0.08)', border: '1px solid rgb(211 72 43 / 0.2)' }}>
                 <FontAwesomeIcon icon={faTriangleExclamation} className="h-3.5 w-3.5 shrink-0" style={{ color: '#d3482b' }} />
-                <span className="text-xs" style={{ color: '#d3482b' }}>{msg}</span>
+                <span className="min-w-0 flex-1 text-xs" style={{ color: '#d3482b' }}>{warning.message}</span>
+                {warning.actionLabel && (
+                  <button
+                    onClick={onDeleteOldestImages}
+                    className="shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors hover:opacity-90"
+                    style={{ background: '#d3482b', color: '#fff' }}
+                  >
+                    {warning.actionLabel}
+                  </button>
+                )}
               </div>
             ))}
           </div>
