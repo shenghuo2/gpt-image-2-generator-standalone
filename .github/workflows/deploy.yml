@@ -35,7 +35,7 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
             echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           else
-            echo "version=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "version=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
           fi
 
       - run: npm run build
