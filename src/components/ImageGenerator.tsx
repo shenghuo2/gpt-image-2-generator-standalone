@@ -18,6 +18,13 @@ function chineseIndex(index: number) {
 const PROMPT_HISTORY_KEY = 'gpt-image-prompt-history'
 const CLEANUP_MIN_IMAGES = 5
 
+function partialFailureMessage(done: number, total: number, firstError?: string) {
+  const missing = Math.max(0, total - done)
+  if (missing === 0) return undefined
+  const prefix = done > 0 ? `已生成 ${done}/${total} 张，失败 ${missing} 张` : `生成失败 ${missing}/${total} 张`
+  return firstError ? `${prefix}：${firstError}` : `${prefix}，可继续重试`
+}
+
 function loadPromptHistory(): HistoryItem[] {
   if (typeof window === 'undefined') return []
   try {
@@ -257,17 +264,17 @@ export function ImageGenerator() {
 
       const images = urls.filter(Boolean) as string[]
       if (images.length) await saveImages(snap.batchId, images)
-      const allFailed = images.length === 0 && errors.length > 0
+      const error = errors.length ? partialFailureMessage(images.length, batch.length, errors[0]) : undefined
       setHistory(prev => {
         const next = prev.map(p => p.id !== snap.batchId ? p : {
           ...p, images: images.length ? images : p.images,
-          error: allFailed ? (errors[0] || '全部请求失败') : undefined,
+          error,
           params: { ...p.params, durationSeconds: Math.round((Date.now() - snap.startedAt) / 1000) },
         })
         setTimeout(() => saveHistory(next), 0)
         return next
       })
-      setJobs(prev => prev.filter(j => j.id.startsWith(snap.batchId) ? j.status === 'error' : true))
+      setJobs(prev => prev.filter(j => !j.id.startsWith(`${snap.batchId}:`)))
       setStorageUsage(await getStorageUsage())
       setImageCount(await getImageCount())
       setLocalStorageUsage(getLocalStorageUsage())
@@ -284,6 +291,99 @@ export function ImageGenerator() {
     setStorageUsage(await getStorageUsage())
     setImageCount(await getImageCount())
     setLocalStorageUsage(getLocalStorageUsage())
+  }
+
+  const retryHistoryItem = (item: HistoryItem) => {
+    const jobId = `${item.id}:${makeId()}`
+    const estimateSeconds = DEFAULTS.defaultEstimateSeconds + (item.params.pixelTier === '2k' ? 30 : item.params.pixelTier === '4k' ? 60 : 0)
+    const job: ImageJob = {
+      id: jobId,
+      index: item.images.length,
+      status: 'queued',
+      estimateSeconds,
+      prompt: item.prompt,
+      quality: item.params.quality,
+      ratioLabel: item.params.ratio !== 'auto' ? item.params.ratio : undefined,
+      size: item.params.size || outputSize,
+      providerName: activeProvider.name,
+      type: item.type,
+      imageCount: item.params.count,
+    }
+
+    setJobs(prev => [...prev, job])
+
+    void (async () => {
+      const startedAt = Date.now()
+      updateJob(jobId, { status: 'running', startedAt, error: undefined })
+      try {
+        const auth = { apiKey: activeProvider.apiKey, baseUrl: activeProvider.baseUrl, supportsResponseFormat: activeProvider.supportsResponseFormat }
+        const size = item.params.size || outputSize
+        const url = item.type === 'edit'
+          ? await editImage(auth, { prompt: item.prompt, quality: item.params.quality, size, images: await loadHistoryRefFiles(item) })
+          : await generateImage(auth, { prompt: item.prompt, quality: item.params.quality, size })
+
+        updateJob(jobId, { status: 'success', url })
+        await persistHistoryImage(item.id, url, Math.round((Date.now() - startedAt) / 1000))
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : '未知错误'
+        const isNetwork = error instanceof TypeError
+        const displayMsg = isNetwork ? `网络连接异常，请检查网络或供应商地址（${msg}）` : msg
+        updateJob(jobId, { status: 'error', error: displayMsg })
+        const next = historyRef.current.map(p => p.id !== item.id ? p : { ...p, error: displayMsg })
+        historyRef.current = next
+        saveHistory(next)
+        setHistory(next)
+      } finally {
+        setJobs(prev => prev.filter(j => j.id !== jobId))
+      }
+    })()
+  }
+
+  const retryJob = (job: ImageJob) => {
+    const historyId = job.id.split(':')[0]
+    const existing = historyRef.current.find(item => item.id === historyId)
+    if (existing) {
+      setJobs(prev => prev.filter(item => item.id !== job.id))
+      retryHistoryItem(existing)
+      return
+    }
+
+    const fallback: HistoryItem = {
+      id: historyId,
+      timestamp: job.startedAt || 0,
+      prompt: job.prompt || prompt.trim(),
+      params: {
+        ratio: (job.ratioLabel || activeRatio) as AspectRatio,
+        quality: (job.quality || quality) as Quality,
+        count: job.imageCount || 1,
+        pixelTier,
+        size: job.size || outputSize,
+        provider: { providerName: job.providerName || activeProvider.name, model: DEFAULTS.model, baseUrl: activeProvider.baseUrl },
+      },
+      images: [],
+      error: job.error,
+      refImages: job.type === 'edit' ? refImagesRef.current.map(item => item.url) : undefined,
+      type: job.type || (refImagesRef.current.length ? 'edit' : 'generate'),
+    }
+    const next = [fallback, ...historyRef.current]
+    historyRef.current = next
+    saveHistory(next)
+    setHistory(next)
+    setJobs(prev => prev.filter(item => item.id !== job.id))
+    retryHistoryItem(fallback)
+  }
+
+  const loadHistoryRefFiles = async (item: HistoryItem): Promise<Array<{ file: File }>> => {
+    const urls = item.refImageKeys?.length
+      ? (await Promise.all(item.refImageKeys.map(key => loadRefImage(key)))).filter((url): url is string => Boolean(url))
+      : item.refImages || []
+    const files = await Promise.all(urls.map(async (url, index) => {
+      const resp = await fetch(url)
+      const blob = await resp.blob()
+      return { file: new File([blob], `ref-${index + 1}.png`, { type: blob.type || 'image/png' }) }
+    }))
+    if (!files.length) throw new Error('找不到参考图，无法重试图生图')
+    return files
   }
 
   const deleteOldestImageRecords = useCallback(async () => {
@@ -304,29 +404,36 @@ export function ImageGenerator() {
     setLocalStorageUsage(getLocalStorageUsage())
   }, [])
 
-  const persistRetriedImage = useCallback(async (job: ImageJob, url: string) => {
+  const persistHistoryImage = useCallback(async (historyId: string, url: string, durationSeconds?: number) => {
     retryPersistenceRef.current = retryPersistenceRef.current.catch(() => undefined).then(async () => {
       try {
-        const batchId = job.id.split(':')[0]
         const current = historyRef.current
-        const item = current.find(p => p.id === batchId)
+        const item = current.find(p => p.id === historyId)
         if (!item) return
 
         const imageIndex = item.images.length
-        const saved = await saveImage(batchId, imageIndex, url)
+        const saved = await saveImage(historyId, imageIndex, url)
         if (!saved) return
 
         const latest = historyRef.current
-        const next = latest.map(p => p.id !== batchId ? p : { ...p, images: [...p.images, url], error: undefined })
+        const next = latest.map(p => {
+          if (p.id !== historyId) return p
+          const images = [...p.images, url]
+          return {
+            ...p,
+            images,
+            error: partialFailureMessage(images.length, p.params.count),
+            params: { ...p.params, durationSeconds: durationSeconds ?? p.params.durationSeconds },
+          }
+        })
         historyRef.current = next
         saveHistory(next)
         setHistory(next)
-        setJobs(prev => prev.filter(j => j.id !== job.id))
         setStorageUsage(await getStorageUsage())
         setImageCount(await getImageCount())
         setLocalStorageUsage(getLocalStorageUsage())
       } catch (error) {
-        console.error('persistRetriedImage failed', error)
+        console.error('persistHistoryImage failed', error)
       }
     })
     return retryPersistenceRef.current
@@ -388,8 +495,6 @@ export function ImageGenerator() {
     setConfigOpen(false)
   }
 
-  const refImagesForMain = refImages as Array<{ file: File }>
-
   return (
     <div className="flex flex-col min-h-screen lg:h-screen">
       <NavBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
@@ -432,20 +537,18 @@ export function ImageGenerator() {
         />
 
         <MainArea
-          jobs={jobs} updateJob={updateJob}
+          jobs={jobs}
           visibleHistory={visibleHistory}
-          activeProvider={activeProvider}
-          quality={quality} outputSize={outputSize}
-          refImages={refImagesForMain}
           preview={preview} setPreview={setPreview}
           deleteHistoryItem={deleteHistoryItem}
+          retryJob={retryJob}
+          retryHistoryItem={retryHistoryItem}
           addFiles={addFiles} clearRefs={clearRefs}
           setPrompt={setPrompt} setRatio={setRatio}
           setQuality={setQuality} setCount={setCount}
           setPixelTier={setPixelTier}
           warnings={warnings}
           multiImageLayout={multiImageLayout}
-          onRetrySuccess={persistRetriedImage}
           onDeleteOldestImages={deleteOldestImageRecords}
         />
       </div>

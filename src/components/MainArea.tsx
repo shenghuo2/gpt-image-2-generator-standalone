@@ -4,10 +4,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faImages, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
 import { ImageGrid, type ImageJob } from './ImageGrid'
 import { ImagePreviewModal } from './ImagePreviewModal'
-import { generateImage, editImage } from '@/lib/api-client'
 import { loadRefImage } from '@/lib/db'
 import type { HistoryItem } from '@/lib/types'
-import type { ProviderEntry, MultiImageLayout } from '@/lib/config'
+import type { MultiImageLayout } from '@/lib/config'
 import type { Quality, PixelTier } from '@/lib/provider-settings'
 
 export interface WarningItem {
@@ -18,15 +17,12 @@ export interface WarningItem {
 
 interface Props {
   jobs: ImageJob[]
-  updateJob: (id: string, patch: Partial<ImageJob>) => void
   visibleHistory: HistoryItem[]
-  activeProvider: ProviderEntry
-  quality: string
-  outputSize: string
-  refImages: Array<{ file: File }>
   preview: HistoryItem | null
   setPreview: (item: HistoryItem | null) => void
   deleteHistoryItem: (id: string) => void
+  retryJob: (job: ImageJob) => void
+  retryHistoryItem: (item: HistoryItem) => void
   addFiles: (files: FileList | File[]) => void
   clearRefs: () => void
   setPrompt: (v: string) => void
@@ -36,11 +32,10 @@ interface Props {
   setPixelTier: (v: PixelTier) => void
   warnings: WarningItem[]
   multiImageLayout: MultiImageLayout
-  onRetrySuccess: (job: ImageJob, url: string) => Promise<void>
   onDeleteOldestImages: () => void
 }
 
-export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, quality, outputSize, refImages, preview, setPreview, deleteHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout, onRetrySuccess, onDeleteOldestImages }: Props) {
+export function MainArea({ jobs, visibleHistory, preview, setPreview, deleteHistoryItem, retryJob, retryHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout, onDeleteOldestImages }: Props) {
   const [previewImageIndex, setPreviewImageIndex] = useState(0)
   return (
     <main className="flex min-w-0 flex-1 flex-col relative" style={{ background: '#f5f5f5' }}>
@@ -73,27 +68,7 @@ export function MainArea({ jobs, updateJob, visibleHistory, activeProvider, qual
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-            <ImageGrid jobs={jobs} onRetry={(job) => {
-              const isEdit = refImages.length > 0
-              const auth = { apiKey: activeProvider.apiKey, baseUrl: activeProvider.baseUrl, supportsResponseFormat: activeProvider.supportsResponseFormat }
-              const jobQuality = job.quality || quality
-              const jobSize = job.size || outputSize
-              void (async () => {
-                const startedAt = Date.now()
-                updateJob(job.id, { status: 'running', startedAt, error: undefined })
-                try {
-                  const url = isEdit
-                    ? await editImage(auth, { prompt: job.prompt!, quality: jobQuality, size: jobSize, images: refImages as Array<{ file: File }> })
-                    : await generateImage(auth, { prompt: job.prompt!, quality: jobQuality, size: jobSize })
-                  updateJob(job.id, { status: 'success', url })
-                  await onRetrySuccess(job, url)
-                } catch (error) {
-                  const msg = error instanceof Error ? error.message : '未知错误'
-                  const isNetwork = error instanceof TypeError
-                  updateJob(job.id, { status: 'error', error: isNetwork ? `网络连接异常，请检查网络或供应商地址（${msg}）` : msg })
-                }
-              })()
-            }} onCardClick={(item, idx) => { setPreviewImageIndex(idx ?? 0); setPreview(item) }} onDelete={deleteHistoryItem} history={visibleHistory} multiImageLayout={multiImageLayout} />
+            <ImageGrid jobs={jobs} onRetryJob={retryJob} onRetryHistory={retryHistoryItem} onCardClick={(item, idx) => { setPreviewImageIndex(idx ?? 0); setPreview(item) }} onDelete={deleteHistoryItem} history={visibleHistory} multiImageLayout={multiImageLayout} />
           </div>
         )}
       </div>

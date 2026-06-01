@@ -26,7 +26,8 @@ export type ImageJob = {
 
 interface Props {
   jobs: ImageJob[]
-  onRetry: (job: ImageJob) => void
+  onRetryJob: (job: ImageJob) => void
+  onRetryHistory: (item: HistoryItem) => void
   onCardClick: (item: HistoryItem, imageIndex?: number) => void
   onDelete: (id: string) => void
   history: HistoryItem[]
@@ -87,7 +88,7 @@ function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCou
           <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>{imageCount} 张</span>
         )}
         {error && onRetry && (
-          <button onClick={onRetry} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[10px] font-medium transition-colors hover:opacity-90 ml-auto" style={{ background: '#d3482b', color: '#fff' }}>
+          <button onClick={(e) => { e.stopPropagation(); onRetry() }} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[10px] font-medium transition-colors hover:opacity-90 ml-auto" style={{ background: '#d3482b', color: '#fff' }}>
             <FontAwesomeIcon icon={faArrowRotateRight} className="h-3 w-3" />重试
           </button>
         )}
@@ -102,7 +103,7 @@ function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCou
   )
 }
 
-export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history, multiImageLayout }: Props) {
+export function ImageGrid({ jobs, onRetryJob, onRetryHistory, onCardClick, onDelete, history, multiImageLayout }: Props) {
   const [now, setNow] = useState(() => Date.now())
 
   const running = jobs.some(j => j.status === 'running')
@@ -136,7 +137,7 @@ export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history, multi
                     <p className="text-sm font-semibold" style={{ color: '#1a1a1a' }}>生成失败</p>
                     <p className="line-clamp-2 text-xs" style={{ color: '#616161' }}>{job.error}</p>
                   </div>
-                  <CardFooter {...footer} error={job.error} onRetry={() => onRetry(job)} />
+                  <CardFooter {...footer} error={job.error} onRetry={() => onRetryJob(job)} />
                 </>
               ) : (
                 <>
@@ -168,6 +169,7 @@ export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history, multi
       ))}
       {history.map((item) => {
         const hasImages = item.images.length > 0
+        const needsRetry = item.error || item.images.length < item.params.count
         const isMulti = hasImages && item.images.length > 1
         const horizontal = isMulti && multiImageLayout === 'horizontal'
         return (
@@ -199,7 +201,11 @@ export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history, multi
                   </div>
                 ))}
               </div>
-              <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} />
+              <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length < item.params.count ? undefined : item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} error={needsRetry ? (item.error || partialErrorText(item.images.length, item.params.count)) : undefined} onRetry={needsRetry ? () => onRetryHistory(item) : undefined}>
+                {item.images.length < item.params.count && (
+                  <p className="text-[11px] font-medium" style={{ color: '#d3482b' }}>已生成 {item.images.length}/{item.params.count} 张</p>
+                )}
+              </CardFooter>
             </>
           ) : (
             <>
@@ -212,11 +218,15 @@ export function ImageGrid({ jobs, onRetry, onCardClick, onDelete, history, multi
                   <p className="line-clamp-2 text-[11px]" style={{ color: '#616161' }}>{item.error}</p>
                 </div>
               )}
-              <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} />
+              <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} error={item.error} onRetry={item.error ? () => onRetryHistory(item) : undefined} />
             </>
           )}
         </div>
       )})}
     </div>
   )
+}
+
+function partialErrorText(done: number, total: number) {
+  return `还差 ${Math.max(0, total - done)} 张`
 }
