@@ -19,7 +19,7 @@ interface Props {
   jobs: ImageJob[]
   visibleHistory: HistoryItem[]
   preview: HistoryItem | null
-  setPreview: (item: HistoryItem | null) => void
+  onPreviewChange: (item: HistoryItem | null) => void
   deleteHistoryItem: (id: string) => void
   retryJob: (job: ImageJob) => void
   retryHistoryItem: (item: HistoryItem) => void
@@ -35,7 +35,7 @@ interface Props {
   onDeleteOldestImages: () => void
 }
 
-export function MainArea({ jobs, visibleHistory, preview, setPreview, deleteHistoryItem, retryJob, retryHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout, onDeleteOldestImages }: Props) {
+export function MainArea({ jobs, visibleHistory, preview, onPreviewChange, deleteHistoryItem, retryJob, retryHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout, onDeleteOldestImages }: Props) {
   const [previewImageIndex, setPreviewImageIndex] = useState(0)
   return (
     <main className="flex min-w-0 flex-1 flex-col relative" style={{ background: '#f5f5f5' }}>
@@ -68,7 +68,7 @@ export function MainArea({ jobs, visibleHistory, preview, setPreview, deleteHist
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-            <ImageGrid jobs={jobs} onRetryJob={retryJob} onRetryHistory={retryHistoryItem} onCardClick={(item, idx) => { setPreviewImageIndex(idx ?? 0); setPreview(item) }} onDelete={deleteHistoryItem} history={visibleHistory} multiImageLayout={multiImageLayout} />
+            <ImageGrid jobs={jobs} onRetryJob={retryJob} onRetryHistory={retryHistoryItem} onCardClick={(item, idx) => { setPreviewImageIndex(idx ?? 0); onPreviewChange(item) }} onDelete={deleteHistoryItem} history={visibleHistory} multiImageLayout={multiImageLayout} />
           </div>
         )}
       </div>
@@ -77,10 +77,10 @@ export function MainArea({ jobs, visibleHistory, preview, setPreview, deleteHist
         key={preview?.id ? `${preview.id}-${previewImageIndex}` : undefined}
         item={preview}
         initialImageIndex={previewImageIndex}
-        onClose={() => setPreview(null)}
+        onClose={() => onPreviewChange(null)}
         onDelete={deleteHistoryItem}
         onReuse={async (item) => {
-          setPreview(null)
+          onPreviewChange(null)
           setPrompt(item.prompt)
           setRatio(item.params.ratio)
           setQuality(item.params.quality)

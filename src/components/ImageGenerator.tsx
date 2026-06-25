@@ -37,9 +37,12 @@ function loadPromptHistory(): HistoryItem[] {
 
 function saveHistory(items: HistoryItem[]) {
   if (typeof window === 'undefined') return
-  const stripped = items.map(({ images, ...rest }) => ({
+  const stripped = items.map(({ images, refImages, ...rest }) => ({
     ...rest,
     images: images.length ? new Array(images.length).fill('') : [],
+    // refImages holds session-only blob: URLs that can't survive a reload —
+    // persisting them only stores dead strings that bloat localStorage. They're
+    // rebuilt from refImageKeys lazily when a preview opens (see handlePreviewChange).
   }))
   localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(stripped))
 }
@@ -143,10 +146,10 @@ export function ImageGenerator() {
       const items = loadPromptHistory()
       const restored = await Promise.all(items.map(async (item) => {
         if (item.images) item.images = await loadImages(item.id, item.images.length || 10)
-        if (item.refImageKeys?.length) {
-          const refs = await Promise.all(item.refImageKeys.map(k => loadRefImage(k)))
-          item.refImages = refs.filter((r): r is string => r !== null)
-        }
+        // Don't preload reference images for every history entry — they're
+        // rebuilt lazily from refImageKeys when a preview opens. Legacy entries
+        // may carry dead blob: URLs from localStorage, so drop them here.
+        item.refImages = undefined
         return item
       }))
       setHistory(restored)
@@ -235,9 +238,11 @@ export function ImageGenerator() {
     const allBeforeTruncate = [entryNoImages, ...history.filter(p => p.id !== promptEntry.id)]
     const truncated = allBeforeTruncate.slice(maxHistoryItems)
     if (truncated.length) {
+      // Await the IndexedDB deletes before dropping the localStorage records,
+      // so a reload mid-truncate can't orphan blobs that no history points to.
       for (const item of truncated) {
         revokeImageUrls(item.images)
-        void deleteImages(item.id)
+        await deleteImages(item.id)
       }
     }
     saveHistory(allBeforeTruncate.slice(0, maxHistoryItems))
@@ -398,6 +403,21 @@ export function ImageGenerator() {
     return files
   }
 
+  const handlePreviewChange = useCallback((item: HistoryItem | null) => {
+    if (!item) { setPreview(null); return }
+    // Open immediately, then lazy-load reference images only for this preview —
+    // avoids creating blob URLs for every history entry on startup.
+    setPreview(item)
+    const keys = item.refImageKeys
+    if (keys?.length && !item.refImages?.length) {
+      void (async () => {
+        const refs = await Promise.all(keys.map(k => loadRefImage(k)))
+        const refImages = refs.filter((r): r is string => r !== null)
+        setPreview(prev => prev && prev.id === item.id ? { ...prev, refImages } : prev)
+      })()
+    }
+  }, [])
+
   const deleteOldestImageRecords = useCallback(async () => {
     const current = historyRef.current
     const plan = getOldestImageDeletePlan(current)
@@ -555,7 +575,7 @@ export function ImageGenerator() {
         <MainArea
           jobs={jobs}
           visibleHistory={visibleHistory}
-          preview={preview} setPreview={setPreview}
+          preview={preview} onPreviewChange={handlePreviewChange}
           deleteHistoryItem={deleteHistoryItem}
           retryJob={retryJob}
           retryHistoryItem={retryHistoryItem}
