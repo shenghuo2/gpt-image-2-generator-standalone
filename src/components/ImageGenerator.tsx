@@ -282,7 +282,13 @@ export function ImageGenerator() {
       const error = errors.length ? partialFailureMessage(images.length, batch.length, errors[0]) : undefined
       setHistory(prev => {
         const next = prev.map(p => p.id !== snap.batchId ? p : {
-          ...p, images: images.length ? images : p.images,
+          ...p,
+          // Merge by job index instead of replacing the whole array: a retry
+          // running during this batch may have already appended images, and a
+          // blind overwrite would drop them (and orphan their IndexedDB blobs).
+          // `urls` is sparse (null for failed jobs); keep any images already
+          // present at each index, then fill from this batch's results.
+          images: urls.map((u, i) => p.images[i] ?? u).filter(Boolean) as string[],
           error,
           params: { ...p.params, durationSeconds: Math.round((Date.now() - snap.startedAt) / 1000) },
         })
@@ -365,6 +371,7 @@ export function ImageGenerator() {
       return
     }
 
+    const isEdit = (job.type === 'edit') || (!job.type && refImagesRef.current.length > 0)
     const fallback: HistoryItem = {
       id: historyId,
       timestamp: job.startedAt || 0,
@@ -379,14 +386,32 @@ export function ImageGenerator() {
       },
       images: [],
       error: job.error,
-      refImages: job.type === 'edit' ? refImagesRef.current.map(item => item.url) : undefined,
-      type: job.type || (refImagesRef.current.length ? 'edit' : 'generate'),
+      // Session-only URLs let the retry run immediately; refImageKeys are
+      // persisted below so a reload can still rebuild the reference images.
+      refImages: isEdit ? refImagesRef.current.map(item => item.url) : undefined,
+      type: isEdit ? 'edit' : 'generate',
     }
     const next = [fallback, ...historyRef.current]
     historyRef.current = next
     saveHistory(next)
     setHistory(next)
     setJobs(prev => prev.filter(item => item.id !== job.id))
+    if (isEdit) {
+      void (async () => {
+        const keys: string[] = []
+        for (const ref of refImagesRef.current) {
+          try {
+            const blob = await fetch(ref.url).then(r => r.blob())
+            keys.push(await saveRefImage(blob))
+          } catch { /* skip */ }
+        }
+        if (!keys.length) return
+        const withKeys = historyRef.current.map(p => p.id !== historyId ? p : { ...p, refImageKeys: keys })
+        historyRef.current = withKeys
+        saveHistory(withKeys)
+        setHistory(withKeys)
+      })()
+    }
     retryHistoryItem(fallback)
   }
 
