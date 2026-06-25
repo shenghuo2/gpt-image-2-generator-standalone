@@ -58,6 +58,13 @@ function getOldestImageDeletePlan(items: HistoryItem[], minImages = CLEANUP_MIN_
   return { ids, imageCount, recordCount: ids.length }
 }
 
+function revokeImageUrls(images: string[]) {
+  for (const url of images) {
+    // Only object URLs need releasing; remote https URLs are a no-op for revoke.
+    if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+  }
+}
+
 export function ImageGenerator() {
   const [prompt, setPrompt] = useState('')
   const [ratio, setRatio] = useState<string>('auto')
@@ -228,7 +235,10 @@ export function ImageGenerator() {
     const allBeforeTruncate = [entryNoImages, ...history.filter(p => p.id !== promptEntry.id)]
     const truncated = allBeforeTruncate.slice(maxHistoryItems)
     if (truncated.length) {
-      for (const item of truncated) void deleteImages(item.id)
+      for (const item of truncated) {
+        revokeImageUrls(item.images)
+        void deleteImages(item.id)
+      }
     }
     saveHistory(allBeforeTruncate.slice(0, maxHistoryItems))
     setLocalStorageUsage(getLocalStorageUsage())
@@ -286,6 +296,8 @@ export function ImageGenerator() {
   }
 
   const deleteHistoryItem = async (id: string) => {
+    const removed = historyRef.current.find(p => p.id === id)
+    if (removed) revokeImageUrls(removed.images)
     await deleteImages(id)
     setHistory(prev => { const next = prev.filter(p => p.id !== id); saveHistory(next); return next })
     setStorageUsage(await getStorageUsage())
@@ -391,7 +403,11 @@ export function ImageGenerator() {
     const plan = getOldestImageDeletePlan(current)
     if (!plan.ids.length) return
 
-    for (const id of plan.ids) await deleteImages(id)
+    for (const id of plan.ids) {
+      const item = current.find(p => p.id === id)
+      if (item) revokeImageUrls(item.images)
+      await deleteImages(id)
+    }
 
     const deletedIds = new Set(plan.ids)
     const next = current.filter(item => !deletedIds.has(item.id))

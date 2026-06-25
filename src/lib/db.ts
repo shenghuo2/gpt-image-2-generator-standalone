@@ -39,8 +39,15 @@ export async function saveImage(historyId: string, index: number, url: string) {
 
 export async function saveImages(historyId: string, urls: string[]) {
   let saved = 0
+  let writeIndex = 0
   for (let i = 0; i < urls.length; i++) {
-    if (await saveImage(historyId, i, urls[i])) saved++
+    // Compact writes so a single failed save doesn't leave an index hole —
+    // a gap would orphan later blobs and misalign the persisted order with
+    // the in-memory array.
+    if (await saveImage(historyId, writeIndex, urls[i])) {
+      saved++
+      writeIndex++
+    }
   }
   return saved
 }
@@ -49,15 +56,29 @@ export async function loadImages(historyId: string, count: number): Promise<stri
   const db = await openDB()
   const txn = db.transaction(IMAGE_STORE, 'readonly')
   const store = txn.objectStore(IMAGE_STORE)
+  // Don't assume a contiguous 0..count-1 range: a past saveImage failure could
+  // have left an index hole, and the old `else break` dropped every image after
+  // the gap. Gather the actual stored keys for this history and load in order.
+  const prefix = `${historyId}_`
+  const allKeys = await new Promise<string[]>((resolve, reject) => {
+    const req = store.getAllKeys()
+    req.onsuccess = () => resolve(req.result as string[])
+    req.onerror = () => reject(req.error)
+  })
+  const indices = allKeys
+    .filter((k): k is string => typeof k === 'string' && k.startsWith(prefix))
+    .map(k => Number(k.slice(prefix.length)))
+    .filter(idx => Number.isInteger(idx) && idx >= 0 && idx < count)
+    .sort((a, b) => a - b)
+
   const urls: string[] = []
-  for (let i = 0; i < count; i++) {
+  for (const idx of indices) {
     const blob = await new Promise<Blob | undefined>((resolve, reject) => {
-      const req = store.get(`${historyId}_${i}`)
+      const req = store.get(`${historyId}_${idx}`)
       req.onsuccess = () => resolve(req.result as Blob | undefined)
       req.onerror = () => reject(req.error)
     })
     if (blob) urls.push(URL.createObjectURL(blob))
-    else break
   }
   return urls
 }
