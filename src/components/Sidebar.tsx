@@ -46,13 +46,12 @@ interface Props {
   loading: boolean; hasPrompt: boolean; apiKey: string
   handleSubmit: () => void; autoOptions: Array<{ value: string; title: string; subtitle: string; ratio: string }>
   selectedSizeLabel: string
-  configOpen: boolean; setConfigOpen: (v: boolean) => void
-  providers: ProviderEntry[]; activeProviderId: string
+  configOpen: boolean; setConfigOpen: (v: boolean) => void; onOpenConfig: () => void
   draftProviders: ProviderEntry[]; setDraftProviders: (v: ProviderEntry[]) => void
   draftActiveId: string; setDraftActiveId: (v: string) => void
-  maxStorageMB: number; draftMaxStorageMB: number; setDraftMaxStorageMB: (v: number) => void
-  maxHistoryItems: number; draftMaxHistoryItems: number; setDraftMaxHistoryItems: (v: number) => void
-  multiImageLayout: MultiImageLayout; draftMultiImageLayout: MultiImageLayout; setDraftMultiImageLayout: (v: MultiImageLayout) => void
+  draftMaxStorageMB: number; setDraftMaxStorageMB: (v: number) => void
+  draftMaxHistoryItems: number; setDraftMaxHistoryItems: (v: number) => void
+  draftMultiImageLayout: MultiImageLayout; setDraftMultiImageLayout: (v: MultiImageLayout) => void
   historyCount: number; localStorageUsage: { usedBytes: number; quotaBytes: number }; imageCount: number
   showKey: boolean; setShowKey: (v: boolean) => void
   storageUsage: number
@@ -65,11 +64,11 @@ export function Sidebar({
   quality, setQuality, count, setCount, refImages, addFiles, removeRef, clearRefs, onReorderRefs, onReorderActive,
   sizeOpen, setSizeOpen, activeProvider, concurrency, outputSize,
   loading, hasPrompt, apiKey, handleSubmit, autoOptions, selectedSizeLabel,
-  configOpen, setConfigOpen, providers, activeProviderId,
+  configOpen, setConfigOpen, onOpenConfig,
   draftProviders, setDraftProviders, draftActiveId, setDraftActiveId,
-  maxStorageMB, draftMaxStorageMB, setDraftMaxStorageMB,
-  maxHistoryItems, draftMaxHistoryItems, setDraftMaxHistoryItems,
-  multiImageLayout, draftMultiImageLayout, setDraftMultiImageLayout,
+  draftMaxStorageMB, setDraftMaxStorageMB,
+  draftMaxHistoryItems, setDraftMaxHistoryItems,
+  draftMultiImageLayout, setDraftMultiImageLayout,
   historyCount, localStorageUsage, imageCount,
   showKey, setShowKey, storageUsage, guideOpen, setGuideOpen, onSaveConfig,
 }: Props) {
@@ -295,7 +294,7 @@ export function Sidebar({
           <span className="truncate">{activeProvider.name} · {DEFAULTS.model}</span>
           <span className="shrink-0 ml-auto text-[10px]" style={{ color: '#919191' }}>并发 {concurrency} · {outputSize}</span>
           <button
-            onClick={() => { setDraftProviders(providers.map(p => ({ ...p }))); setDraftActiveId(activeProviderId); setDraftMaxStorageMB(maxStorageMB); setDraftMaxHistoryItems(maxHistoryItems); setDraftMultiImageLayout(multiImageLayout); setConfigOpen(true) }}
+            onClick={onOpenConfig}
             className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150"
             style={{ color: apiKey ? '#616161' : '#d3482b', background: apiKey ? '' : 'rgb(211 72 43 / 0.1)', border: apiKey ? '' : '1px solid rgb(211 72 43 / 0.3)' }}
           >

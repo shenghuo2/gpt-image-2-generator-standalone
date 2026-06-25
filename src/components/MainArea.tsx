@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faImages, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
+import { faGear, faImages, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
 import { ImageGrid, type ImageJob } from './ImageGrid'
 import { ImagePreviewModal } from './ImagePreviewModal'
 import { loadRefImage } from '@/lib/db'
@@ -33,9 +33,10 @@ interface Props {
   warnings: WarningItem[]
   multiImageLayout: MultiImageLayout
   onDeleteOldestImages: () => void
+  onOpenConfig: () => void
 }
 
-export function MainArea({ jobs, visibleHistory, preview, onPreviewChange, deleteHistoryItem, retryJob, retryHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout, onDeleteOldestImages }: Props) {
+export function MainArea({ jobs, visibleHistory, preview, onPreviewChange, deleteHistoryItem, retryJob, retryHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, multiImageLayout, onDeleteOldestImages, onOpenConfig }: Props) {
   const [previewImageIndex, setPreviewImageIndex] = useState(0)
   return (
     <main className="flex min-w-0 flex-1 flex-col relative" style={{ background: '#f5f5f5' }}>
@@ -55,6 +56,13 @@ export function MainArea({ jobs, visibleHistory, preview, onPreviewChange, delet
                     {warning.actionLabel}
                   </button>
                 )}
+                <button
+                  onClick={onOpenConfig}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors hover:opacity-90"
+                  style={{ border: '1px solid rgb(211 72 43 / 0.4)', color: '#d3482b', background: 'rgb(211 72 43 / 0.06)' }}
+                >
+                  <FontAwesomeIcon icon={faGear} className="h-3 w-3" />修改设置
+                </button>
               </div>
             ))}
           </div>

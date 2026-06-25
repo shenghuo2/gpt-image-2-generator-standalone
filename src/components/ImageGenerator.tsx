@@ -545,6 +545,17 @@ export function ImageGenerator() {
     return msgs
   }, [storageUsage, maxStorageMB, imageCount, imageCleanupPlan, history.length, maxHistoryItems, localStorageUsage])
 
+  const handleOpenConfig = () => {
+    // Sync draft to current values on open so the modal never shows stale edits
+    // from a previous session (e.g. after storage/history limits changed).
+    setDraftProviders(providers.map(p => ({ ...p })))
+    setDraftActiveId(activeProviderId)
+    setDraftMaxStorageMB(maxStorageMB)
+    setDraftMaxHistoryItems(maxHistoryItems)
+    setDraftMultiImageLayout(multiImageLayout)
+    setConfigOpen(true)
+  }
+
   const handleSaveConfig = () => {
     const cfg: StandaloneConfig = { providers: draftProviders, activeProviderId: draftActiveId, maxStorageMB: draftMaxStorageMB, maxHistoryItems: draftMaxHistoryItems, multiImageLayout: draftMultiImageLayout }
     saveConfig(cfg)
@@ -583,13 +594,12 @@ export function ImageGenerator() {
           activeProvider={activeProvider} concurrency={concurrency} outputSize={outputSize}
           loading={loading} hasPrompt={hasPrompt} apiKey={activeProvider.apiKey}
           handleSubmit={handleSubmit} autoOptions={autoOptions} selectedSizeLabel={selectedSizeLabel}
-          configOpen={configOpen} setConfigOpen={setConfigOpen}
-          providers={providers} activeProviderId={activeProviderId}
+          configOpen={configOpen} setConfigOpen={setConfigOpen} onOpenConfig={handleOpenConfig}
           draftProviders={draftProviders} setDraftProviders={setDraftProviders}
           draftActiveId={draftActiveId} setDraftActiveId={setDraftActiveId}
-          maxStorageMB={maxStorageMB} draftMaxStorageMB={draftMaxStorageMB} setDraftMaxStorageMB={setDraftMaxStorageMB}
-          maxHistoryItems={maxHistoryItems} draftMaxHistoryItems={draftMaxHistoryItems} setDraftMaxHistoryItems={setDraftMaxHistoryItems}
-          multiImageLayout={multiImageLayout} draftMultiImageLayout={draftMultiImageLayout} setDraftMultiImageLayout={setDraftMultiImageLayout}
+          draftMaxStorageMB={draftMaxStorageMB} setDraftMaxStorageMB={setDraftMaxStorageMB}
+          draftMaxHistoryItems={draftMaxHistoryItems} setDraftMaxHistoryItems={setDraftMaxHistoryItems}
+          draftMultiImageLayout={draftMultiImageLayout} setDraftMultiImageLayout={setDraftMultiImageLayout}
           historyCount={history.length} localStorageUsage={localStorageUsage} imageCount={imageCount}
           showKey={showKey} setShowKey={setShowKey}
           storageUsage={storageUsage}
@@ -611,6 +621,7 @@ export function ImageGenerator() {
           warnings={warnings}
           multiImageLayout={multiImageLayout}
           onDeleteOldestImages={deleteOldestImageRecords}
+          onOpenConfig={handleOpenConfig}
         />
       </div>
 
