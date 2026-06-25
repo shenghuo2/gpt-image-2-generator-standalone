@@ -115,6 +115,8 @@ export function getActiveProvider(config: StandaloneConfig): ProviderEntry {
 
 export { DEFAULTS, CUSTOM_PROVIDER_ID }
 
+// localStorage quota is defined in UTF-16 code units (chars), ~5M per origin.
+// Measure usage in the same unit so the warning threshold is accurate.
 const LS_QUOTA_BYTES = 5 * 1024 * 1024
 
 export function getLocalStorageUsage(): { usedBytes: number; quotaBytes: number } {
@@ -124,7 +126,7 @@ export function getLocalStorageUsage(): { usedBytes: number; quotaBytes: number 
     const key = localStorage.key(i)
     if (key) {
       const val = localStorage.getItem(key) || ''
-      usedBytes += (key.length + val.length) * 2
+      usedBytes += key.length + val.length
     }
   }
   return { usedBytes, quotaBytes: LS_QUOTA_BYTES }
