@@ -5,3 +5,7 @@ out/
 *.md
 !README.md
 !docs/speed-test.md
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+*.tsbuildinfo
