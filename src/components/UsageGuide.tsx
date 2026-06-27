@@ -45,7 +45,8 @@ export function UsageGuide({ open, onClose }: Props) {
               <div className="rounded-lg border p-3 text-[13px] lg:text-sm" style={{ borderColor: 'rgb(0 0 0 / 0.08)', background: 'rgb(0 0 0 / 0.02)' }}>
                 <span className="font-semibold" style={{ color: '#1a1a1a' }}>NowCoding</span>
                 <span className="ml-1.5 text-[11px]" style={{ color: '#919191' }}>nowcoding.ai</span>
-                <p className="mt-1" style={{ color: '#616161' }}>默认预置供应商。约 ¥0.03/张，支持自定义分辨率。审核相对敏感，可能改动提示词（响应含 <code className="text-[11px] rounded px-1" style={{ background: 'rgb(0 0 0 / 0.06)' }}>revised_prompt</code>）。</p>
+                <p className="mt-1" style={{ color: '#616161' }}>默认预置供应商。约 <span className="line-through" style={{ color: '#919191' }}>¥0.03</span> ¥0.06/张，已不能完全指定自定义分辨率。审核相对敏感，可能改动提示词（响应含 <code className="text-[11px] rounded px-1" style={{ background: 'rgb(0 0 0 / 0.06)' }}>revised_prompt</code>）。</p>
+                <p className="mt-0.5 text-[10px]" style={{ color: '#919191' }}>更新于 6.25</p>
               </div>
               <div className="rounded-lg border p-3 text-[13px] lg:text-sm" style={{ borderColor: 'rgb(0 0 0 / 0.08)', background: 'rgb(0 0 0 / 0.02)' }}>
                 <span className="font-semibold" style={{ color: '#1a1a1a' }}>YunWu</span>
