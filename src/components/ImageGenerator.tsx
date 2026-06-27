@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { snapRatioToStandard, sizeFromRatio, validateSize, round16, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
 import { DEFAULTS, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, type StandaloneConfig, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import { generateImage, editImage } from '@/lib/api-client'
-import { saveImage, saveImages, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage, getImageCount } from '@/lib/db'
+import { saveImage, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage, getImageCount } from '@/lib/db'
 import { makeId } from '@/lib/id'
 import type { HistoryItem, RefItem } from '@/lib/types'
 import { NavBar } from './NavBar'
@@ -37,12 +37,13 @@ function loadPromptHistory(): HistoryItem[] {
 
 function saveHistory(items: HistoryItem[]) {
   if (typeof window === 'undefined') return
-  const stripped = items.map(({ images, refImages, ...rest }) => ({
+  const stripped = items.map(({ images, ...rest }) => ({
     ...rest,
     images: images.length ? new Array(images.length).fill('') : [],
     // refImages holds session-only blob: URLs that can't survive a reload —
     // persisting them only stores dead strings that bloat localStorage. They're
     // rebuilt from refImageKeys lazily when a preview opens (see handlePreviewChange).
+    refImages: undefined,
   }))
   localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(stripped))
 }
@@ -277,24 +278,29 @@ export function ImageGenerator() {
       })
       await Promise.all(workers)
 
-      const images = urls.filter(Boolean) as string[]
-      if (images.length) await saveImages(snap.batchId, images)
-      const error = errors.length ? partialFailureMessage(images.length, batch.length, errors[0]) : undefined
-      setHistory(prev => {
-        const next = prev.map(p => p.id !== snap.batchId ? p : {
+      await (retryPersistenceRef.current = retryPersistenceRef.current.catch(() => undefined).then(async () => {
+        const latest = historyRef.current
+        const target = latest.find(p => p.id === snap.batchId)
+        if (!target) return
+
+        const batchImages = urls.filter(Boolean) as string[]
+        const images = [...target.images, ...batchImages].slice(0, batch.length)
+
+        for (let i = 0; i < batchImages.length && target.images.length + i < images.length; i++) {
+          await saveImage(snap.batchId, target.images.length + i, batchImages[i])
+        }
+
+        const error = errors.length ? partialFailureMessage(images.length, batch.length, errors[0]) : undefined
+        const next = latest.map(p => p.id !== snap.batchId ? p : {
           ...p,
-          // Merge by job index instead of replacing the whole array: a retry
-          // running during this batch may have already appended images, and a
-          // blind overwrite would drop them (and orphan their IndexedDB blobs).
-          // `urls` is sparse (null for failed jobs); keep any images already
-          // present at each index, then fill from this batch's results.
-          images: urls.map((u, i) => p.images[i] ?? u).filter(Boolean) as string[],
+          images,
           error,
           params: { ...p.params, durationSeconds: Math.round((Date.now() - snap.startedAt) / 1000) },
         })
-        setTimeout(() => saveHistory(next), 0)
-        return next
-      })
+        historyRef.current = next
+        saveHistory(next)
+        setHistory(next)
+      }))
       setJobs(prev => prev.filter(j => !j.id.startsWith(`${snap.batchId}:`)))
       setStorageUsage(await getStorageUsage())
       setImageCount(await getImageCount())
