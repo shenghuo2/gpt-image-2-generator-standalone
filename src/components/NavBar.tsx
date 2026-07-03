@@ -1,6 +1,8 @@
 'use client'
+import { useSyncExternalStore } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSearch, faXmark } from '@fortawesome/free-solid-svg-icons'
+import { Badge } from './ui/badge'
 
 interface Props {
   searchQuery: string
@@ -9,18 +11,49 @@ interface Props {
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION
 
+function subscribeToProtocolChange() {
+  return () => {}
+}
+
+function getIsHttps() {
+  return window.location.protocol === 'https:'
+}
+
+function getServerIsHttps() {
+  return false
+}
+
 export function NavBar({ searchQuery, setSearchQuery }: Props) {
+  const isHttps = useSyncExternalStore(subscribeToProtocolChange, getIsHttps, getServerIsHttps)
+
   return (
     <nav className="flex h-12 shrink-0 items-center border-b" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.08)' }}>
       <div className="flex items-center gap-2 shrink-0 px-5 lg:w-[400px]">
         <img src="./logo.png" alt="" className="h-5 w-5 rounded" />
-        <span className="text-[13px] font-semibold truncate" style={{ color: '#1a1a1a' }}>
+        <span className="min-w-0 truncate text-[13px] font-semibold" style={{ color: '#1a1a1a' }}>
           <span className="hidden lg:inline">shenghuo2 的 GPT-image-2 图片生成站</span>
           <span className="lg:hidden">生蚝的生图站</span>
-          {APP_VERSION && (
-            <span className="ml-2 text-[11px] font-normal" style={{ color: '#919191' }}>{APP_VERSION}</span>
-          )}
         </span>
+        {APP_VERSION && (
+          <Badge
+            className="h-[18px] shrink-0 gap-1.5 rounded-full px-2 py-0 text-[11px] font-normal leading-none"
+            style={{ background: '#f7f7f7', borderColor: 'rgb(0 0 0 / 0.12)', color: '#5f5f5f' }}
+            aria-label={`App version ${APP_VERSION}`}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                width: 6,
+                height: 6,
+                flexShrink: 0,
+                borderRadius: 9999,
+                background: isHttps ? '#3fb950' : '#f59e0b',
+              }}
+              aria-hidden="true"
+            />
+            <span>{APP_VERSION}</span>
+          </Badge>
+        )}
       </div>
       <div className="flex-1 flex items-center min-w-0 gap-2 px-3 lg:px-4">
         <div className="relative max-w-[120px] lg:max-w-[220px] flex-1 min-w-0">

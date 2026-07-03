@@ -343,9 +343,6 @@
   .ml-1\.5 {
     margin-left: calc(var(--spacing) * 1.5);
   }
-  .ml-2 {
-    margin-left: calc(var(--spacing) * 2);
-  }
   .ml-auto {
     margin-left: auto;
   }
@@ -375,6 +372,9 @@
   }
   .hidden {
     display: none;
+  }
+  .inline-block {
+    display: inline-block;
   }
   .inline-flex {
     display: inline-flex;
@@ -435,6 +435,9 @@
   }
   .h-36 {
     height: calc(var(--spacing) * 36);
+  }
+  .h-\[18px\] {
+    height: 18px;
   }
   .h-full {
     height: 100%;
@@ -822,6 +825,9 @@
   .px-6 {
     padding-inline: calc(var(--spacing) * 6);
   }
+  .py-0 {
+    padding-block: calc(var(--spacing) * 0);
+  }
   .py-0\.5 {
     padding-block: calc(var(--spacing) * 0.5);
   }
@@ -897,6 +903,10 @@
   }
   .text-\[13px\] {
     font-size: 13px;
+  }
+  .leading-none {
+    --tw-leading: 1;
+    line-height: 1;
   }
   .leading-relaxed {
     --tw-leading: var(--leading-relaxed);

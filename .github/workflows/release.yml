@@ -14,6 +14,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -22,9 +24,20 @@ jobs:
 
       - run: npm ci
 
+      - name: Resolve app version
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          SHORT_SHA=$(git rev-parse --short=8 "$TAG^{commit}" 2>/dev/null || true)
+          if [[ -n "$SHORT_SHA" ]]; then
+            echo "version=${TAG}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
       - run: npm run build
         env:
-          NEXT_PUBLIC_APP_VERSION: ${{ github.event.inputs.tag }}
+          NEXT_PUBLIC_APP_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Package zip
         run: |
