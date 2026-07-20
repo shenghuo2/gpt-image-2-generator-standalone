@@ -62,12 +62,16 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
               <button
                 onClick={() => {
                   const id = `custom_${Date.now()}`
-                  setDraftProviders([...draftProviders, { id, name: '自定义', apiKey: '', baseUrl: 'https://', supportsResponseFormat: false, supportsCustomSize: true, maxConcurrency: 1 }])
+                  setDraftProviders([...draftProviders, { id, name: '自定义', apiKey: '', baseUrl: '', supportsResponseFormat: false, supportsCustomSize: true, maxConcurrency: 1 }])
                   setDraftActiveId(id)
                 }}
-                className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-black/10 transition-colors" title="添加自定义供应商"
+                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors hover:opacity-80"
+                style={{ color: '#346aea', background: 'rgb(52 106 234 / 0.06)', borderColor: 'rgb(52 106 234 / 0.22)' }}
+                title="添加自定义中转站"
+                aria-label="添加自定义中转站"
               >
-                <FontAwesomeIcon icon={faPlus} className="h-3 w-3" style={{ color: '#616161' }} />
+                <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
+                <span>添加自定义中转站</span>
               </button>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -146,7 +150,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                       <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>Base URL</span>
                       <input value={dp.baseUrl} onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, baseUrl: e.target.value } : p))} onBlur={(e) => { const cleaned = e.target.value.trim().replace(/\/+$/, '').replace(/\/v1$/i, ''); setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, baseUrl: cleaned } : p)) }} onFocus={scrollIntoView}
                         className="w-full h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
-                        style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} placeholder="https://" />
+                        style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} placeholder="https://example.com" />
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={dp.supportsResponseFormat}
