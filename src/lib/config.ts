@@ -2,7 +2,6 @@ const DEFAULTS = {
   model: 'gpt-image-2',
   generatePath: '/v1/images/generations',
   editPath: '/v1/images/edits',
-  supportsCustomSize: true,
   defaultQuality: 'medium' as const,
   defaultEstimateSeconds: 60,
 }
@@ -15,6 +14,7 @@ export interface ProviderEntry {
   apiKey: string
   baseUrl: string
   supportsResponseFormat: boolean
+  supportsCustomSize: boolean
   maxConcurrency: number
 }
 
@@ -29,16 +29,33 @@ export interface StandaloneConfig {
 }
 
 export const BUILTIN_PROVIDERS: ProviderEntry[] = [
-  { id: 'nowcoding', name: 'NowCoding', apiKey: '', baseUrl: 'https://nowcoding.ai', supportsResponseFormat: true, maxConcurrency: 4 },
-  { id: 'yunwu', name: 'YunWu', apiKey: '', baseUrl: 'https://yunwu.ai', supportsResponseFormat: false, maxConcurrency: 1 },
+  { id: 'yunwu', name: 'YunWu', apiKey: '', baseUrl: 'https://yunwu.ai', supportsResponseFormat: false, supportsCustomSize: true, maxConcurrency: 2 },
+  { id: 'gptgod', name: 'GPTGod', apiKey: '', baseUrl: 'https://new.gptgod.cloud', supportsResponseFormat: true, supportsCustomSize: false, maxConcurrency: 5 },
+  // Kept only so existing browser configs can be migrated without losing their Key.
+  // New users never receive this retired provider in getDefaultConfig().
+  { id: 'nowcoding', name: 'NowCoding', apiKey: '', baseUrl: 'https://nowcoding.ai', supportsResponseFormat: true, supportsCustomSize: false, maxConcurrency: 1 },
 ]
 
 const CUSTOM_PROVIDER_ID = '__custom__'
+const RETIRED_PROVIDER_IDS = new Set(['nowcoding'])
 
-function createDefaultConfig(): StandaloneConfig {
+export const RETIRED_PROVIDER_MESSAGE = 'NowCoding 已下线 GPT-image-2 模型，请切换到其他供应商。'
+
+export function isBuiltinProvider(provider: Pick<ProviderEntry, 'id'> | string) {
+  const id = typeof provider === 'string' ? provider : provider.id
+  return BUILTIN_PROVIDERS.some(p => p.id === id)
+}
+
+export function isRetiredProvider(provider: Pick<ProviderEntry, 'id'> | string) {
+  const id = typeof provider === 'string' ? provider : provider.id
+  return RETIRED_PROVIDER_IDS.has(id)
+}
+
+export function getDefaultConfig(): StandaloneConfig {
+  const providers = BUILTIN_PROVIDERS.filter(p => !isRetiredProvider(p)).map(p => ({ ...p }))
   return {
-    providers: BUILTIN_PROVIDERS.map(p => ({ ...p })),
-    activeProviderId: BUILTIN_PROVIDERS[0].id,
+    providers,
+    activeProviderId: providers[0].id,
     maxStorageMB: 500,
     maxHistoryItems: 300,
     multiImageLayout: 'horizontal' as MultiImageLayout,
@@ -50,19 +67,23 @@ function isLegacyConfig(raw: Record<string, unknown>): boolean {
 }
 
 function migrateLegacy(raw: Record<string, unknown>): StandaloneConfig {
-  const cfg = createDefaultConfig()
+  const cfg = getDefaultConfig()
   const apiKey = typeof raw.apiKey === 'string' ? raw.apiKey : ''
-  const baseUrl = typeof raw.baseUrl === 'string' ? raw.baseUrl : BUILTIN_PROVIDERS[0].baseUrl
+  const baseUrl = typeof raw.baseUrl === 'string' ? raw.baseUrl : cfg.providers[0].baseUrl
   const maxStorageMB = typeof raw.maxStorageMB === 'number' ? raw.maxStorageMB : 500
 
   // Try to match the old baseUrl to a built-in provider
   const matched = BUILTIN_PROVIDERS.find(p => p.baseUrl === baseUrl.replace(/\/+$/, ''))
   if (matched) {
-    cfg.providers = cfg.providers.map(p => p.id === matched.id ? { ...p, apiKey } : p)
+    if (cfg.providers.some(p => p.id === matched.id)) {
+      cfg.providers = cfg.providers.map(p => p.id === matched.id ? { ...p, apiKey } : p)
+    } else {
+      cfg.providers.push({ ...matched, apiKey })
+    }
     cfg.activeProviderId = matched.id
   } else if (apiKey) {
     // Custom provider — add it
-    cfg.providers.push({ id: CUSTOM_PROVIDER_ID, name: '自定义', apiKey, baseUrl, supportsResponseFormat: false, maxConcurrency: 1 })
+    cfg.providers.push({ id: CUSTOM_PROVIDER_ID, name: '自定义', apiKey, baseUrl, supportsResponseFormat: false, supportsCustomSize: true, maxConcurrency: 1 })
     cfg.activeProviderId = CUSTOM_PROVIDER_ID
   }
   cfg.maxStorageMB = maxStorageMB
@@ -70,7 +91,7 @@ function migrateLegacy(raw: Record<string, unknown>): StandaloneConfig {
 }
 
 export function loadConfig(): StandaloneConfig {
-  if (typeof window === 'undefined') return createDefaultConfig()
+  if (typeof window === 'undefined') return getDefaultConfig()
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
     if (isLegacyConfig(raw)) {
@@ -80,7 +101,7 @@ export function loadConfig(): StandaloneConfig {
     }
     if (Array.isArray(raw.providers) && typeof raw.activeProviderId === 'string') {
       // Merge any new built-in providers that don't exist yet
-      const merged = createDefaultConfig()
+      const merged = getDefaultConfig()
       merged.providers = merged.providers.map(p => {
         const existing = (raw.providers as ProviderEntry[]).find((e: ProviderEntry) => e.id === p.id)
         return existing ? { ...p, apiKey: existing.apiKey || '' } : p
@@ -88,18 +109,28 @@ export function loadConfig(): StandaloneConfig {
       // Preserve custom providers
       for (const p of (raw.providers as ProviderEntry[])) {
         if (!merged.providers.find(m => m.id === p.id)) {
-          merged.providers.push({ ...p, supportsResponseFormat: p.supportsResponseFormat ?? false, maxConcurrency: p.maxConcurrency ?? 1 })
+          const builtin = BUILTIN_PROVIDERS.find(b => b.id === p.id)
+          merged.providers.push(builtin
+            ? { ...builtin, apiKey: p.apiKey || '' }
+            : {
+                ...p,
+                supportsResponseFormat: p.supportsResponseFormat ?? false,
+                supportsCustomSize: p.supportsCustomSize ?? true,
+                maxConcurrency: p.maxConcurrency ?? 1,
+              })
         }
       }
-      merged.activeProviderId = raw.activeProviderId as string
+      merged.activeProviderId = merged.providers.some(p => p.id === raw.activeProviderId)
+        ? raw.activeProviderId as string
+        : merged.providers[0].id
       merged.maxStorageMB = typeof raw.maxStorageMB === 'number' ? raw.maxStorageMB : 500
       merged.maxHistoryItems = typeof raw.maxHistoryItems === 'number' ? raw.maxHistoryItems : 300
       merged.multiImageLayout = (raw.multiImageLayout === 'vertical' ? 'vertical' : 'horizontal') as MultiImageLayout
       return merged
     }
-    return createDefaultConfig()
+    return getDefaultConfig()
   } catch {
-    return createDefaultConfig()
+    return getDefaultConfig()
   }
 }
 
@@ -110,7 +141,7 @@ export function saveConfig(config: StandaloneConfig) {
 
 export function getActiveProvider(config: StandaloneConfig): ProviderEntry {
   const found = config.providers.find(p => p.id === config.activeProviderId)
-  return found || config.providers[0] || BUILTIN_PROVIDERS[0]
+  return found || config.providers[0] || getDefaultConfig().providers[0]
 }
 
 export { DEFAULTS, CUSTOM_PROVIDER_ID }

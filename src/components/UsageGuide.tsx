@@ -36,26 +36,25 @@ export function UsageGuide({ open, onClose }: Props) {
             <h3 className="text-sm lg:text-base font-semibold mb-3" style={{ color: '#1a1a1a' }}>什么是中转站？</h3>
             <p className="text-[13px] lg:text-sm" style={{ color: '#616161' }}>
               中转站（API Proxy）是一个中间服务，提供与 OpenAI 兼容的 API 接口，底层调用 GPT-image-2 等模型。
-              ChatGPT 网页版未开放自定义分辨率参数，且价格更高；中转站提供标准 API，支持自定义尺寸，价格更低。
+              ChatGPT 网页版目前未开放自定义分辨率参数；中转站通常价格更低，但尺寸能力取决于接入渠道：低价反代渠道普遍只能使用标准尺寸，Azure API 等直连渠道则可完整自定义。
             </p>
             <p className="text-[13px] lg:text-sm mt-1" style={{ color: '#616161' }}>
-              本人推荐这两家，也可以使用自己现有的中转站（设置中点击 + 添加自定义供应商）。
+              目前推荐以下两家，也可以在设置中点击「+」添加自己已有的中转站。
             </p>
             <div className="mt-3 space-y-2">
               <div className="rounded-lg border p-3 text-[13px] lg:text-sm" style={{ borderColor: 'rgb(0 0 0 / 0.08)', background: 'rgb(0 0 0 / 0.02)' }}>
-                <span className="font-semibold" style={{ color: '#1a1a1a' }}>NowCoding</span>
-                <span className="ml-1.5 text-[11px]" style={{ color: '#919191' }}>nowcoding.ai</span>
-                <p className="mt-1" style={{ color: '#616161' }}>默认预置供应商。约 <span className="line-through" style={{ color: '#919191' }}>¥0.03</span> ¥0.06/张，已不能完全指定自定义分辨率。审核相对敏感，可能改动提示词（响应含 <code className="text-[11px] rounded px-1" style={{ background: 'rgb(0 0 0 / 0.06)' }}>revised_prompt</code>）。</p>
-                <p className="mt-0.5 text-[10px]" style={{ color: '#919191' }}>更新于 6.25</p>
-              </div>
-              <div className="rounded-lg border p-3 text-[13px] lg:text-sm" style={{ borderColor: 'rgb(0 0 0 / 0.08)', background: 'rgb(0 0 0 / 0.02)' }}>
                 <span className="font-semibold" style={{ color: '#1a1a1a' }}>YunWu</span>
                 <span className="ml-1.5 text-[11px]" style={{ color: '#919191' }}>yunwu.ai</span>
-                <p className="mt-1" style={{ color: '#616161' }}>不改动提示词，画质接近官方 API。高峰期可能返回 429。不支持 <code className="text-[11px] rounded px-1" style={{ background: 'rgb(0 0 0 / 0.06)' }}>response_format</code> 参数（切换后自动关闭）。</p>
+                <p className="mt-1" style={{ color: '#616161' }}>接入 Azure API 渠道，可正常使用完整的自定义分辨率能力（包括 4K），且不会改动提示词。高峰期可能返回 429；不支持 <code className="text-[11px] rounded px-1" style={{ background: 'rgb(0 0 0 / 0.06)' }}>response_format</code> 参数（切换后自动关闭）。</p>
                 <div className="mt-1.5 space-y-1 text-[11px]">
                   <div>带邀请码：<a href="https://yunwu.ai/register?aff=HE7h" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#346aea' }}>https://yunwu.ai/register?aff=HE7h</a></div>
                   <div>无邀请码：<a href="https://yunwu.ai/register" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#346aea' }}>https://yunwu.ai/register</a></div>
                 </div>
+              </div>
+              <div className="rounded-lg border p-3 text-[13px] lg:text-sm" style={{ borderColor: 'rgb(0 0 0 / 0.08)', background: 'rgb(0 0 0 / 0.02)' }}>
+                <span className="font-semibold" style={{ color: '#1a1a1a' }}>GPTGod</span>
+                <a href="https://new.gptgod.cloud/" target="_blank" rel="noopener noreferrer" className="ml-1.5 text-[11px] underline" style={{ color: '#346aea' }}>new.gptgod.cloud</a>
+                <p className="mt-1" style={{ color: '#616161' }}>当前低价推荐，最低约 ¥0.02/张。受 GPT 反代渠道限制，不能完全自定义图片尺寸；最低充值金额为 ¥10。</p>
               </div>
             </div>
           </section>
@@ -63,7 +62,7 @@ export function UsageGuide({ open, onClose }: Props) {
           <section>
             <h3 className="text-sm lg:text-base font-semibold mb-3" style={{ color: '#1a1a1a' }}>如何开始？</h3>
             <ol className="text-[13px] lg:text-sm space-y-3 list-decimal pl-4" style={{ color: '#616161' }}>
-              <li>选择一个中转站注册账号（如 <a href="https://nowcoding.ai" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#346aea' }}>nowcoding.ai</a> 或 <a href="https://yunwu.ai/register?aff=HE7h" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#346aea' }}>yunwu.ai</a>）</li>
+              <li>选择一个中转站注册账号：首选 <a href="https://yunwu.ai/register?aff=HE7h" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#346aea' }}>YunWu</a>，低价优先也可选择 <a href="https://new.gptgod.cloud/" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#346aea' }}>GPTGod</a></li>
               <li>注册后进入「令牌管理 / API 令牌」页面，点击「添加令牌」创建新 Key</li>
               <li>复制 Key（格式 <code className="text-[11px] rounded px-1" style={{ background: 'rgb(0 0 0 / 0.06)', color: '#1a1a1a' }}>sk-xxxxx</code>），回到本站左下角齿轮</li>
               <li>在设置中切换到你注册的供应商，填入 API Key，保存</li>

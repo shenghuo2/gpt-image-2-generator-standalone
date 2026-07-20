@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { snapRatioToStandard, sizeFromRatio, validateSize, round16, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
-import { DEFAULTS, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, type StandaloneConfig, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
+import { DEFAULTS, getDefaultConfig, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, isRetiredProvider, RETIRED_PROVIDER_MESSAGE, type StandaloneConfig, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import { generateImage, editImage } from '@/lib/api-client'
 import { saveImage, loadImages, deleteImages, saveRefImage, loadRefImage, getStorageUsage, getImageCount } from '@/lib/db'
 import { makeId } from '@/lib/id'
@@ -84,7 +84,9 @@ export function ImageGenerator() {
   const [isDragging, setIsDragging] = useState(false)
   const [sizeOpen, setSizeOpen] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
-  const [initialConfig] = useState(() => loadConfig())
+  // Keep the server render and the first client render identical. Browser config
+  // is applied after hydration so an existing provider cannot change SSR text.
+  const [initialConfig] = useState(() => getDefaultConfig())
   const [providers, setProviders] = useState<ProviderEntry[]>(() => initialConfig.providers)
   const [activeProviderId, setActiveProviderId] = useState(() => initialConfig.activeProviderId)
   const [draftProviders, setDraftProviders] = useState<ProviderEntry[]>([])
@@ -99,7 +101,7 @@ export function ImageGenerator() {
   const [draftMultiImageLayout, setDraftMultiImageLayout] = useState<MultiImageLayout>('horizontal')
   const [storageUsage, setStorageUsage] = useState(0)
   const [imageCount, setImageCount] = useState(0)
-  const [localStorageUsage, setLocalStorageUsage] = useState(() => getLocalStorageUsage())
+  const [localStorageUsage, setLocalStorageUsage] = useState({ usedBytes: 0, quotaBytes: 5 * 1024 * 1024 })
   const [guideOpen, setGuideOpen] = useState(false)
   const refImagesRef = useRef<RefItem[]>([])
   const historyRef = useRef<HistoryItem[]>([])
@@ -144,6 +146,20 @@ export function ImageGenerator() {
 
   useEffect(() => {
     void (async () => {
+      // Yield once so these browser-only values are applied after hydration.
+      await Promise.resolve()
+      const saved = loadConfig()
+      setProviders(saved.providers)
+      setActiveProviderId(saved.activeProviderId)
+      setMaxStorageMB(saved.maxStorageMB)
+      setMaxHistoryItems(saved.maxHistoryItems)
+      setMultiImageLayout(saved.multiImageLayout)
+      setLocalStorageUsage(getLocalStorageUsage())
+    })()
+  }, [])
+
+  useEffect(() => {
+    void (async () => {
       const items = loadPromptHistory()
       const restored = await Promise.all(items.map(async (item) => {
         if (item.images) item.images = await loadImages(item.id, item.images.length || 10)
@@ -178,10 +194,13 @@ export function ImageGenerator() {
     [providers, activeProviderId, maxStorageMB, maxHistoryItems, multiImageLayout]
   )
 
-  const outputSize = useMemo(
-    () => ratio === 'custom' ? `${round16(customSize.w)}x${round16(customSize.h)}` : sizeFromRatio(activeRatio, pixelTier, DEFAULTS.supportsCustomSize),
-    [ratio, customSize, activeRatio, pixelTier]
-  )
+  const outputSize = useMemo(() => {
+    if (ratio === 'custom' && activeProvider.supportsCustomSize) {
+      return `${round16(customSize.w)}x${round16(customSize.h)}`
+    }
+    const requestedRatio = ratio === 'custom' ? `${customSize.w}:${customSize.h}` : activeRatio
+    return sizeFromRatio(requestedRatio, pixelTier, activeProvider.supportsCustomSize)
+  }, [ratio, customSize, activeRatio, pixelTier, activeProvider.supportsCustomSize])
   const concurrency = Math.min(activeProvider.maxConcurrency || 1, count)
 
   const visibleHistory = useMemo(() => {
@@ -198,6 +217,10 @@ export function ImageGenerator() {
 
   const handleSubmit = async () => {
     if (!prompt.trim() || submittingRef.current) return
+    if (isRetiredProvider(activeProvider)) {
+      window.alert(RETIRED_PROVIDER_MESSAGE)
+      return
+    }
     submittingRef.current = true
 
     const snap = {
@@ -323,6 +346,10 @@ export function ImageGenerator() {
   }
 
   const retryHistoryItem = (item: HistoryItem) => {
+    if (isRetiredProvider(activeProvider)) {
+      window.alert(RETIRED_PROVIDER_MESSAGE)
+      return
+    }
     const jobId = `${item.id}:${makeId()}`
     const estimateSeconds = DEFAULTS.defaultEstimateSeconds + (item.params.pixelTier === '2k' ? 30 : item.params.pixelTier === '4k' ? 60 : 0)
     const job: ImageJob = {
@@ -522,12 +549,15 @@ export function ImageGenerator() {
   }
 
   const hasPrompt = prompt.trim().length > 0
-  const customSizeErrors = ratio === 'custom' ? validateSize(round16(customSize.w), round16(customSize.h)) : []
-  const selectedSizeLabel = ratio === 'custom'
+  const customSizeErrors = ratio === 'custom' && activeProvider.supportsCustomSize ? validateSize(round16(customSize.w), round16(customSize.h)) : []
+  const requestedSizeLabel = ratio === 'custom'
     ? `${round16(customSize.w)}×${round16(customSize.h)}`
     : ratio === 'auto'
       ? (autoOptions[0] ? `${autoOptions[0].title}（${autoOptions[0].subtitle}）` : 'auto')
       : autoOptions.find((option) => option.value === ratio)?.title || ratio
+  const selectedSizeLabel = activeProvider.supportsCustomSize
+    ? requestedSizeLabel
+    : `${requestedSizeLabel} → ${outputSize.replace('x', '×')}`
 
   const imageCleanupPlan = useMemo(() => getOldestImageDeletePlan(history), [history])
 

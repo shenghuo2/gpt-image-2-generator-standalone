@@ -87,7 +87,16 @@ export function snapRatioToStandard(width: number, height: number): AspectRatio 
 }
 
 export function sizeFromRatio(ratio: string, tier: PixelTier, supportsCustomSize: boolean) {
-  if (!supportsCustomSize) return FALLBACK_SIZE_MAP[ratio] ?? '1024x1024'
+  if (!supportsCustomSize) {
+    const preset = FALLBACK_SIZE_MAP[ratio]
+    if (preset) return preset
+    const [width, height] = ratio.split(':').map(Number)
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+      if (width > height) return FALLBACK_SIZE_MAP['3:2']
+      if (height > width) return FALLBACK_SIZE_MAP['2:3']
+    }
+    return FALLBACK_SIZE_MAP['1:1']
+  }
 
   const [rawW, rawH] = ratio.split(':').map(Number)
   if (!Number.isFinite(rawW) || !Number.isFinite(rawH) || rawH <= 0) return '1024x1024'

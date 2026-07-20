@@ -79,10 +79,12 @@ export function Sidebar({
   const [sizeMenuStyle, setSizeMenuStyle] = useState<React.CSSProperties>({})
 
   const visibleTiers = useMemo(
-    () => ratio === 'custom' || ratio === 'auto' || ratio.startsWith('auto:')
+    () => !activeProvider.supportsCustomSize
+      ? PIXEL_TIERS.slice(0, 1)
+      : ratio === 'custom' || ratio === 'auto' || ratio.startsWith('auto:')
       ? PIXEL_TIERS
       : PIXEL_TIERS.filter(t => availableTiersFor(ratio).includes(t.value)),
-    [ratio]
+    [ratio, activeProvider.supportsCustomSize]
   )
 
   useEffect(() => {
@@ -90,6 +92,10 @@ export function Sidebar({
       setPixelTier(visibleTiers[visibleTiers.length - 1].value)
     }
   }, [visibleTiers, pixelTier, setPixelTier])
+
+  useEffect(() => {
+    if (!activeProvider.supportsCustomSize && ratio === 'custom') setRatio('1:1')
+  }, [activeProvider.supportsCustomSize, ratio, setRatio])
 
   useEffect(() => {
     if (!previewRefUrl) return
@@ -207,18 +213,22 @@ export function Sidebar({
                 {RATIO_OPTIONS.filter(o => o.value !== 'auto').map((o) => (
                   <SizeOption key={o.value} title={o.title} subtitle={o.subtitle} onClick={() => { setRatio(o.value); setSizeOpen(false) }} wide={o.w > o.h} />
                 ))}
-                <div className="my-1 h-px" style={{ background: 'rgb(0 0 0 / 0.08)' }} />
-                <button onClick={() => { setRatio('custom'); setSizeOpen(false) }} className="flex h-9 w-full items-center gap-3 px-4 text-sm hover:bg-black/10 transition-colors duration-150">
-                  <span className="flex h-5 w-5 items-center justify-center text-[10px] font-bold" style={{ color: '#616161' }}>W×H</span>
-                  <span className="font-medium" style={{ color: '#1a1a1a' }}>自定义</span>
-                  <span className="text-xs" style={{ color: '#616161' }}>输入像素</span>
-                </button>
+                {activeProvider.supportsCustomSize && (
+                  <>
+                    <div className="my-1 h-px" style={{ background: 'rgb(0 0 0 / 0.08)' }} />
+                    <button onClick={() => { setRatio('custom'); setSizeOpen(false) }} className="flex h-9 w-full items-center gap-3 px-4 text-sm hover:bg-black/10 transition-colors duration-150">
+                      <span className="flex h-5 w-5 items-center justify-center text-[10px] font-bold" style={{ color: '#616161' }}>W×H</span>
+                      <span className="font-medium" style={{ color: '#1a1a1a' }}>自定义</span>
+                      <span className="text-xs" style={{ color: '#616161' }}>输入像素</span>
+                    </button>
+                  </>
+                )}
               </div>
               </>
             )}
           </div>
 
-          {ratio !== 'custom' && (
+          {activeProvider.supportsCustomSize && ratio !== 'custom' && (
           <div className="relative flex h-10 shrink-0 items-center overflow-hidden rounded-lg" style={{ width: '5.5rem', background: 'rgb(0 0 0 / 0.04)' }}>
             <div className="absolute inset-y-0.5 rounded-md transition-all duration-300 ease-out" style={{
               left: `calc(${visibleTiers.findIndex(t => t.value === pixelTier)} * 100% / ${visibleTiers.length} + 2px)`,
@@ -232,14 +242,17 @@ export function Sidebar({
           </div>
           )}
         </div>
-        {visibleTiers.length < 3 && ratio !== 'custom' && (
+        {!activeProvider.supportsCustomSize && (
+          <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#b56a00' }}>该供应商仅支持标准图片尺寸，所选比例会自动映射为最接近的方图、横图或竖图</p>
+        )}
+        {activeProvider.supportsCustomSize && visibleTiers.length < 3 && ratio !== 'custom' && (
           <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#d3482b' }}>因最大边长限制（&lt; 3840px），该比例仅支持最高 2K 分辨率</p>
         )}
-        {APPROX_RATIO_HINT[ratio] && (
+        {activeProvider.supportsCustomSize && APPROX_RATIO_HINT[ratio] && (
           <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#919191' }}>{APPROX_RATIO_HINT[ratio]}</p>
         )}
 
-        {ratio === 'custom' && (
+        {activeProvider.supportsCustomSize && ratio === 'custom' && (
           <div className="mb-4">
             <div className="flex items-center gap-2">
               <input value={customSize.w || ''} onChange={(e) => setCustomSize({ ...customSize, w: Number(e.target.value) || 0 })}

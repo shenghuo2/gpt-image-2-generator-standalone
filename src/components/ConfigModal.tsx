@@ -1,8 +1,8 @@
 'use client'
 import { useEffect } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faEye, faEyeSlash, faGear, faKey, faPlus, faXmark, faCircleQuestion } from '@fortawesome/free-solid-svg-icons'
-import { BUILTIN_PROVIDERS, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
+import { faEye, faEyeSlash, faGear, faKey, faPlus, faXmark, faCircleQuestion, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
+import { isBuiltinProvider, isRetiredProvider, RETIRED_PROVIDER_MESSAGE, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 
 interface Props {
   activeProvider: ProviderEntry
@@ -62,7 +62,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
               <button
                 onClick={() => {
                   const id = `custom_${Date.now()}`
-                  setDraftProviders([...draftProviders, { id, name: '自定义', apiKey: '', baseUrl: 'https://', supportsResponseFormat: false, maxConcurrency: 1 }])
+                  setDraftProviders([...draftProviders, { id, name: '自定义', apiKey: '', baseUrl: 'https://', supportsResponseFormat: false, supportsCustomSize: true, maxConcurrency: 1 }])
                   setDraftActiveId(id)
                 }}
                 className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-black/10 transition-colors" title="添加自定义供应商"
@@ -72,18 +72,25 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
             </div>
             <div className="flex flex-wrap gap-2">
               {draftProviders.map((p) => {
-                const builtin = BUILTIN_PROVIDERS.some(b => b.id === p.id)
+                const builtin = isBuiltinProvider(p)
+                const retired = isRetiredProvider(p)
                 return (
                   <div key={p.id} className="relative group">
-                    <button onClick={() => setDraftActiveId(p.id)} className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
-                      style={{ background: draftActiveId === p.id ? '#346aea' : 'rgb(0 0 0 / 0.04)', color: draftActiveId === p.id ? '#fff' : '#616161' }}>{p.name}</button>
-                    {!builtin && (
+                    <button onClick={() => setDraftActiveId(p.id)} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                      title={retired ? RETIRED_PROVIDER_MESSAGE : undefined}
+                      style={{ background: draftActiveId === p.id ? '#346aea' : retired ? 'rgb(211 72 43 / 0.08)' : 'rgb(0 0 0 / 0.04)', color: draftActiveId === p.id ? '#fff' : retired ? '#b33a24' : '#616161' }}>
+                      {retired && <FontAwesomeIcon icon={faTriangleExclamation} className="h-3 w-3" />}
+                      <span className={retired ? 'line-through' : undefined}>{p.name}</span>
+                    </button>
+                    {(!builtin || retired) && (
                       <button
                         onClick={() => {
-                          setDraftProviders(draftProviders.filter(x => x.id !== p.id))
-                          if (draftActiveId === p.id && draftProviders.length > 1) setDraftActiveId(draftProviders[0].id)
+                          const remaining = draftProviders.filter(x => x.id !== p.id)
+                          setDraftProviders(remaining)
+                          if (draftActiveId === p.id) setDraftActiveId(remaining[0]?.id || '')
                         }}
                         className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                        aria-label={`删除供应商 ${p.name}`}
                       >
                         <FontAwesomeIcon icon={faXmark} className="h-2 w-2" />
                       </button>
@@ -97,9 +104,17 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
           {(() => {
             const dp = draftProviders.find(p => p.id === draftActiveId)
             if (!dp) return null
-            const isBuiltin = BUILTIN_PROVIDERS.some(b => b.id === dp.id)
+            const isBuiltin = isBuiltinProvider(dp)
+            const isRetired = isRetiredProvider(dp)
             return (
               <>
+                {isRetired && (
+                  <div className="flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs" role="alert"
+                    style={{ color: '#b33a24', background: 'rgb(211 72 43 / 0.06)', borderColor: 'rgb(211 72 43 / 0.22)' }}>
+                    <FontAwesomeIcon icon={faTriangleExclamation} className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{RETIRED_PROVIDER_MESSAGE}</span>
+                  </div>
+                )}
                 {!isBuiltin && (
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>名称</span>
@@ -123,7 +138,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                 </label>
                 {isBuiltin ? (
                   <p className="text-[11px]" style={{ color: '#919191' }}>
-                    Base URL：{dp.baseUrl}{!dp.supportsResponseFormat && ' · 不支持 response_format 参数'}
+                    Base URL：{dp.baseUrl}{!dp.supportsResponseFormat && ' · 不支持 response_format 参数'}{!dp.supportsCustomSize && ' · 仅支持标准图片尺寸'}
                   </p>
                 ) : (
                   <>
@@ -138,6 +153,12 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                         onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, supportsResponseFormat: e.target.checked } : p))}
                         className="h-4 w-4 rounded accent-[#346aea]" />
                       <span className="text-xs" style={{ color: '#616161' }}>支持 response_format (b64_json)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={dp.supportsCustomSize}
+                        onChange={(e) => setDraftProviders(draftProviders.map(p => p.id === dp.id ? { ...p, supportsCustomSize: e.target.checked } : p))}
+                        className="h-4 w-4 rounded accent-[#346aea]" />
+                      <span className="text-xs" style={{ color: '#616161' }}>支持完全自定义图片尺寸</span>
                     </label>
                   </>
                 )}
