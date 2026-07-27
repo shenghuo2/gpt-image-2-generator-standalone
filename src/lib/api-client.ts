@@ -1,6 +1,6 @@
 import { DEFAULTS } from './config'
 
-interface ApiAuth { apiKey: string; baseUrl: string; supportsResponseFormat?: boolean }
+interface ApiAuth { apiKey: string; baseUrl: string; model?: string; supportsResponseFormat?: boolean }
 
 function normalizeBaseUrl(url: string) {
   return url.trim().replace(/\/+$/, '').replace(/\/v1$/i, '')
@@ -29,7 +29,7 @@ function extractImageUrl(data: Record<string, unknown>) {
 export async function generateImage(auth: ApiAuth, params: { prompt: string; quality: string; size: string }) {
   const endpoint = `${normalizeBaseUrl(auth.baseUrl)}${DEFAULTS.generatePath}`
   const body: Record<string, unknown> = {
-    model: DEFAULTS.model,
+    model: auth.model?.trim() || DEFAULTS.model,
     prompt: params.prompt,
     n: 1,
     size: params.size,
@@ -57,7 +57,7 @@ export async function editImage(auth: ApiAuth, params: { prompt: string; quality
   const endpoint = `${normalizeBaseUrl(auth.baseUrl)}${DEFAULTS.editPath}`
   const form = new FormData()
   form.append('prompt', params.prompt)
-  form.append('model', DEFAULTS.model)
+  form.append('model', auth.model?.trim() || DEFAULTS.model)
   form.append('size', params.size)
   form.append('quality', params.quality)
   form.append('n', '1')

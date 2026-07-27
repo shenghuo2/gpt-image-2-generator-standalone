@@ -36,7 +36,10 @@ export function UsageGuide({ open, onClose }: Props) {
             <h3 className="text-sm lg:text-base font-semibold mb-3" style={{ color: '#1a1a1a' }}>什么是中转站？</h3>
             <p className="text-[13px] lg:text-sm" style={{ color: '#616161' }}>
               中转站（API Proxy）是一个中间服务，提供与 OpenAI 兼容的 API 接口，底层调用 GPT-image-2 等模型。
-              ChatGPT 网页版目前未开放自定义分辨率参数；中转站通常价格更低，但尺寸能力取决于接入渠道：低价反代渠道普遍只能使用标准尺寸，Azure API 等直连渠道则可完整自定义。
+              ChatGPT 网页版目前未开放自定义分辨率参数；中转站通常价格更低，但尺寸能力取决于接入渠道：<span title="该限制由 Codex 反代渠道于 6 月下旬新增" style={{ borderBottom: '1px dotted #919191' }}>低价反代渠道普遍只能使用标准尺寸</span><sup style={{ marginLeft: 2, color: '#919191', fontSize: 9 }}>注</sup>，Azure API 等直连渠道则可完整自定义。
+            </p>
+            <p className="mt-1 text-[10px]" style={{ color: '#919191' }}>
+              注：这是 Codex 反代渠道在 6 月下旬新增的限制；后续规则可能调整，请以中转站最新公告为准。
             </p>
             <p className="text-[13px] lg:text-sm mt-1" style={{ color: '#616161' }}>
               目前推荐以下两家，也可以在设置中点击「+」添加自己已有的中转站。
@@ -54,7 +57,7 @@ export function UsageGuide({ open, onClose }: Props) {
               <div className="rounded-lg border p-3 text-[13px] lg:text-sm" style={{ borderColor: 'rgb(0 0 0 / 0.08)', background: 'rgb(0 0 0 / 0.02)' }}>
                 <span className="font-semibold" style={{ color: '#1a1a1a' }}>GPTGod</span>
                 <a href="https://new.gptgod.cloud/" target="_blank" rel="noopener noreferrer" className="ml-1.5 text-[11px] underline" style={{ color: '#346aea' }}>new.gptgod.cloud</a>
-                <p className="mt-1" style={{ color: '#616161' }}>当前低价推荐，最低约 ¥0.02/张。受 GPT 反代渠道限制，不能完全自定义图片尺寸；最低充值金额为 ¥10。</p>
+                <p className="mt-1" style={{ color: '#616161' }}>当前低价推荐，最低约 ¥0.02/张，最低充值金额为 ¥10。普通模型仅支持标准尺寸；如需自定义分辨率，请将模型 ID 填为 <code className="text-[11px] rounded px-1" style={{ background: 'rgb(0 0 0 / 0.06)' }}>gpt-image-2-vip</code>，并在 GPTGod 控制台切换到公告指定的分组。完成两项配置后应可使用自定义分辨率；具体分组、可用性与计费请以中转站最新公告为准。</p>
               </div>
             </div>
           </section>

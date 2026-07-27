@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faEye, faEyeSlash, faGear, faKey, faPlus, faXmark, faCircleQuestion, faTriangleExclamation, faChevronDown } from '@fortawesome/free-solid-svg-icons'
-import { isBuiltinProvider, isRetiredProvider, RETIRED_PROVIDER_MESSAGE, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
+import { DEFAULTS, GPTGOD_CUSTOM_SIZE_MODEL, isBuiltinProvider, isRetiredProvider, resolveProviderCustomSizeSupport, RETIRED_PROVIDER_MESSAGE, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 
 interface Props {
@@ -82,7 +82,7 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
               <button
                 onClick={() => {
                   const id = `custom_${Date.now()}`
-                  setDraftProviders([...draftProviders, { id, name: '自定义', apiKey: '', baseUrl: '', supportsResponseFormat: false, supportsCustomSize: true, maxConcurrency: 1 }])
+                  setDraftProviders([...draftProviders, { id, name: '自定义', model: DEFAULTS.model, apiKey: '', baseUrl: '', supportsResponseFormat: false, supportsCustomSize: true, maxConcurrency: 1 }])
                   setDraftActiveId(id)
                   setAdvancedOpen(true)
                 }}
@@ -134,6 +134,13 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
             if (!dp) return null
             const isBuiltin = isBuiltinProvider(dp)
             const isRetired = isRetiredProvider(dp)
+            const updateModel = (value: string) => {
+              setDraftProviders(draftProviders.map(p => p.id === dp.id ? {
+                ...p,
+                model: value,
+                supportsCustomSize: resolveProviderCustomSizeSupport(p.id, value, p.supportsCustomSize),
+              } : p))
+            }
             return (
               <>
                 {isRetired && (
@@ -163,6 +170,17 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                       <FontAwesomeIcon icon={showKey ? faEyeSlash : faEye} className="h-3.5 w-3.5" />
                     </button>
                   </div>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>模型 ID</span>
+                  <input value={dp.model || ''} onChange={(e) => updateModel(e.target.value)} onBlur={(e) => updateModel(e.target.value.trim() || DEFAULTS.model)} onFocus={scrollIntoView}
+                    className="w-full h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
+                    style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} placeholder={DEFAULTS.model} />
+                  {dp.id === 'gptgod' && (
+                    <span className="mt-1.5 block text-[10px]" style={{ color: dp.supportsCustomSize ? '#20733a' : '#919191' }}>
+                      填入 {GPTGOD_CUSTOM_SIZE_MODEL} 后，本站会开放自定义尺寸选项；还需在 GPTGod 控制台切换到公告指定分组，实际可用性以最新公告为准{dp.supportsCustomSize ? ' · 本站已开启' : ''}
+                    </span>
+                  )}
                 </label>
                 {isBuiltin ? (
                   <p className="text-[11px]" style={{ color: '#919191' }}>

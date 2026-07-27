@@ -228,7 +228,7 @@ export function ImageGenerator() {
       ratio: (ratio === 'auto' ? 'auto' : activeRatio) as AspectRatio,
       isEdit: refImages.length > 0, concurrency, batchId: makeId(),
       startedAt: Date.now(), estimateSeconds: DEFAULTS.defaultEstimateSeconds + (pixelTier === '2k' ? 30 : pixelTier === '4k' ? 60 : 0),
-      apiKey: activeProvider.apiKey, baseUrl: activeProvider.baseUrl, providerSupportsResponseFormat: activeProvider.supportsResponseFormat,
+      apiKey: activeProvider.apiKey, baseUrl: activeProvider.baseUrl, model: activeProvider.model || DEFAULTS.model, providerSupportsResponseFormat: activeProvider.supportsResponseFormat,
     }
 
     const batch: ImageJob[] = Array.from({ length: snap.count }, (_, index) => ({
@@ -255,7 +255,7 @@ export function ImageGenerator() {
 
     const promptEntry: HistoryItem = {
       id: snap.batchId, timestamp: Date.now(), prompt: snap.prompt,
-      params: { ratio: snap.ratio, quality: snap.quality, count: snap.count, pixelTier: snap.pixelTier, size: snap.outputSize, provider: { providerName: activeProvider.name, model: DEFAULTS.model, baseUrl: snap.baseUrl }, durationSeconds: Math.round((Date.now() - snap.startedAt) / 1000) },
+      params: { ratio: snap.ratio, quality: snap.quality, count: snap.count, pixelTier: snap.pixelTier, size: snap.outputSize, provider: { providerName: activeProvider.name, model: snap.model, baseUrl: snap.baseUrl }, durationSeconds: Math.round((Date.now() - snap.startedAt) / 1000) },
       images: [], refImages: refImageUrls.length ? refImageUrls : undefined, refImageKeys: refImageKeys.length ? refImageKeys : undefined, type: snap.isEdit ? 'edit' : 'generate',
     }
     const entryNoImages = { ...promptEntry, images: [] as string[] }
@@ -284,7 +284,7 @@ export function ImageGenerator() {
           cursor += 1
           updateJob(job.id, { status: 'running', startedAt: Date.now(), error: undefined })
           try {
-            const auth = { apiKey: snap.apiKey, baseUrl: snap.baseUrl, supportsResponseFormat: snap.providerSupportsResponseFormat }
+            const auth = { apiKey: snap.apiKey, baseUrl: snap.baseUrl, model: snap.model, supportsResponseFormat: snap.providerSupportsResponseFormat }
             const url = snap.isEdit
               ? await editImage(auth, { prompt: job.prompt!, quality: snap.quality, size: snap.outputSize, images: frozenRefs })
               : await generateImage(auth, { prompt: job.prompt!, quality: snap.quality, size: snap.outputSize })
@@ -372,7 +372,7 @@ export function ImageGenerator() {
       const startedAt = Date.now()
       updateJob(jobId, { status: 'running', startedAt, error: undefined })
       try {
-        const auth = { apiKey: activeProvider.apiKey, baseUrl: activeProvider.baseUrl, supportsResponseFormat: activeProvider.supportsResponseFormat }
+        const auth = { apiKey: activeProvider.apiKey, baseUrl: activeProvider.baseUrl, model: activeProvider.model, supportsResponseFormat: activeProvider.supportsResponseFormat }
         const size = item.params.size || outputSize
         const url = item.type === 'edit'
           ? await editImage(auth, { prompt: item.prompt, quality: item.params.quality, size, images: await loadHistoryRefFiles(item) })
@@ -415,7 +415,7 @@ export function ImageGenerator() {
         count: job.imageCount || 1,
         pixelTier,
         size: job.size || outputSize,
-        provider: { providerName: job.providerName || activeProvider.name, model: DEFAULTS.model, baseUrl: activeProvider.baseUrl },
+        provider: { providerName: job.providerName || activeProvider.name, model: activeProvider.model || DEFAULTS.model, baseUrl: activeProvider.baseUrl },
       },
       images: [],
       error: job.error,
@@ -581,6 +581,15 @@ export function ImageGenerator() {
     return msgs
   }, [storageUsage, maxStorageMB, imageCount, imageCleanupPlan, history.length, maxHistoryItems, localStorageUsage])
 
+  const handleQuickProviderChange = (providerId: string) => {
+    const provider = providers.find(p => p.id === providerId)
+    if (!provider || isRetiredProvider(provider) || providerId === activeProviderId) return
+    const cfg: StandaloneConfig = { providers, activeProviderId: providerId, maxStorageMB, maxHistoryItems, multiImageLayout }
+    saveConfig(cfg)
+    setActiveProviderId(providerId)
+    setLocalStorageUsage(getLocalStorageUsage())
+  }
+
   const handleOpenConfig = () => {
     // Sync draft to current values on open so the modal never shows stale edits
     // from a previous session (e.g. after storage/history limits changed).
@@ -627,7 +636,8 @@ export function ImageGenerator() {
           count={count} setCount={setCount}
           refImages={refImages} addFiles={addFiles} removeRef={removeRef} clearRefs={clearRefs} onReorderRefs={reorderRefs} onReorderActive={onReorderActive}
           sizeOpen={sizeOpen} setSizeOpen={setSizeOpen}
-          activeProvider={activeProvider} concurrency={concurrency} outputSize={outputSize}
+          providers={providers} activeProvider={activeProvider} concurrency={concurrency} outputSize={outputSize}
+          onQuickProviderChange={handleQuickProviderChange}
           loading={loading} hasPrompt={hasPrompt} apiKey={activeProvider.apiKey}
           handleSubmit={handleSubmit} autoOptions={autoOptions} selectedSizeLabel={selectedSizeLabel}
           configOpen={configOpen} setConfigOpen={setConfigOpen} onOpenConfig={handleOpenConfig}

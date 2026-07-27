@@ -4,10 +4,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faChevronDown, faCropSimple,
   faGear, faMinus, faPlus, faWandMagicSparkles,
-  faXmark, faLayerGroup,
+  faXmark, faLayerGroup, faCheck, faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons'
 import { RATIO_OPTIONS, round16, availableTiersFor, type PixelTier, type Quality } from '@/lib/provider-settings'
-import { DEFAULTS, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
+import { DEFAULTS, isRetiredProvider, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import type { RefItem } from '@/lib/types'
 import { UsageGuide } from './UsageGuide'
 import { ConfigModal } from './ConfigModal'
@@ -42,7 +42,8 @@ interface Props {
   removeRef: (id: string) => void; clearRefs: () => void; onReorderRefs: (from: number, to: number) => void
   onReorderActive: (v: boolean) => void
   sizeOpen: boolean; setSizeOpen: (v: boolean) => void
-  activeProvider: ProviderEntry; concurrency: number; outputSize: string
+  providers: ProviderEntry[]; activeProvider: ProviderEntry; concurrency: number; outputSize: string
+  onQuickProviderChange: (providerId: string) => void
   loading: boolean; hasPrompt: boolean; apiKey: string
   handleSubmit: () => void; autoOptions: Array<{ value: string; title: string; subtitle: string; ratio: string }>
   selectedSizeLabel: string
@@ -62,7 +63,7 @@ interface Props {
 export function Sidebar({
   prompt, setPrompt, ratio, setRatio, customSize, setCustomSize, customSizeErrors, pixelTier, setPixelTier,
   quality, setQuality, count, setCount, refImages, addFiles, removeRef, clearRefs, onReorderRefs, onReorderActive,
-  sizeOpen, setSizeOpen, activeProvider, concurrency, outputSize,
+  sizeOpen, setSizeOpen, providers, activeProvider, concurrency, outputSize, onQuickProviderChange,
   loading, hasPrompt, apiKey, handleSubmit, autoOptions, selectedSizeLabel,
   configOpen, setConfigOpen, onOpenConfig,
   draftProviders, setDraftProviders, draftActiveId, setDraftActiveId,
@@ -74,8 +75,10 @@ export function Sidebar({
 }: Props) {
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [previewRefUrl, setPreviewRefUrl] = useState<string | null>(null)
+  const [providerMenuOpen, setProviderMenuOpen] = useState(false)
   const sizeButtonRef = useRef<HTMLButtonElement>(null)
   const sizeMenuRef = useRef<HTMLDivElement>(null)
+  const providerMenuRef = useRef<HTMLDivElement>(null)
   const [sizeMenuStyle, setSizeMenuStyle] = useState<React.CSSProperties>({})
 
   const visibleTiers = useMemo(
@@ -103,6 +106,22 @@ export function Sidebar({
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [previewRefUrl])
+
+  useEffect(() => {
+    if (!providerMenuOpen) return
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!providerMenuRef.current?.contains(event.target as Node)) setProviderMenuOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setProviderMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [providerMenuOpen])
 
   useEffect(() => {
     if (!sizeOpen || !sizeButtonRef.current) return
@@ -302,17 +321,65 @@ export function Sidebar({
         <span className="text-[10px]" style={{ color: '#919191' }}>纯静态站点，数据均在浏览器本地，无服务端</span>
       </div>
       <div className="shrink-0 space-y-3 border-t p-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
-        <div className="flex items-center gap-2 text-xs" style={{ color: '#616161' }}>
-          <FontAwesomeIcon icon={faLayerGroup} className="h-3 w-3 shrink-0" />
-          <span className="truncate">{activeProvider.name} · {DEFAULTS.model}</span>
-          <span className="shrink-0 ml-auto text-[10px]" style={{ color: '#919191' }}>并发 {concurrency} · {outputSize}</span>
-          <button
-            onClick={onOpenConfig}
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150"
-            style={{ color: apiKey ? '#616161' : '#d3482b', background: apiKey ? '' : 'rgb(211 72 43 / 0.1)', border: apiKey ? '' : '1px solid rgb(211 72 43 / 0.3)' }}
-          >
-            <FontAwesomeIcon icon={faGear} className={`${apiKey ? '' : 'animate-pulse'} h-3.5 w-3.5`} />
-          </button>
+        <div ref={providerMenuRef} className="relative">
+          {providerMenuOpen && (
+            <div className="absolute bottom-full left-0 right-0 z-[60] mb-2 overflow-y-auto rounded-xl border p-1.5 shadow-2xl"
+              style={{ maxHeight: 'min(280px, 45vh)', background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
+              <div className="flex items-center justify-between px-2 py-1.5">
+                <span className="text-xs font-semibold" style={{ color: '#1a1a1a' }}>快速切换供应商</span>
+                <span className="max-w-[160px] truncate text-[10px]" style={{ color: '#919191' }}>{activeProvider.model || DEFAULTS.model}</span>
+              </div>
+              <div className="space-y-1">
+                {providers.map((provider) => {
+                  const selected = provider.id === activeProvider.id
+                  const retired = isRetiredProvider(provider)
+                  return (
+                    <button key={provider.id} type="button" disabled={retired}
+                      onClick={() => { onQuickProviderChange(provider.id); setProviderMenuOpen(false) }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-black/5 disabled:cursor-not-allowed"
+                      style={{ background: selected ? 'rgb(52 106 234 / 0.08)' : 'transparent', opacity: retired ? 0.58 : 1 }}>
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                        style={{ color: retired ? '#b33a24' : selected ? '#346aea' : '#616161', background: retired ? 'rgb(211 72 43 / 0.08)' : selected ? 'rgb(52 106 234 / 0.1)' : 'rgb(0 0 0 / 0.04)' }}>
+                        <FontAwesomeIcon icon={retired ? faTriangleExclamation : faLayerGroup} className="h-3 w-3" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5">
+                          <span className={`truncate text-xs font-medium ${retired ? 'line-through' : ''}`} style={{ color: retired ? '#b33a24' : '#1a1a1a' }}>{provider.name}</span>
+                          {!provider.apiKey && !retired && (
+                            <span className="shrink-0 rounded px-1 py-0.5 text-[9px]" style={{ color: '#a35a00', background: 'rgb(245 158 11 / 0.1)' }}>未配置 Key</span>
+                          )}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[10px]" style={{ color: retired ? '#b33a24' : '#919191' }}>
+                          {retired ? 'GPT-image-2 已下线' : `${provider.model || DEFAULTS.model} · ${provider.baseUrl}`}
+                        </span>
+                      </span>
+                      {selected && !retired && <FontAwesomeIcon icon={faCheck} className="h-3 w-3 shrink-0" style={{ color: '#346aea' }} />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-xs" style={{ color: '#616161' }}>
+            <button type="button" onClick={() => setProviderMenuOpen(!providerMenuOpen)} aria-expanded={providerMenuOpen}
+              className="flex h-8 min-w-0 items-center gap-2 rounded-lg border px-2.5 text-left transition-colors hover:bg-black/5"
+              style={{ maxWidth: '150px', color: '#346aea', background: providerMenuOpen ? 'rgb(52 106 234 / 0.08)' : 'rgb(52 106 234 / 0.04)', borderColor: 'rgb(52 106 234 / 0.18)' }}
+              title="快速切换供应商">
+              <FontAwesomeIcon icon={faLayerGroup} className="h-3 w-3 shrink-0" />
+              <span className="truncate font-medium">{activeProvider.name}</span>
+              <FontAwesomeIcon icon={faChevronDown} className="h-2.5 w-2.5 shrink-0 transition-transform"
+                style={{ transform: providerMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+            </button>
+            <span className="ml-auto shrink-0 text-[10px]" style={{ color: '#919191' }}>并发 {concurrency} · {outputSize}</span>
+            <button
+              onClick={() => { setProviderMenuOpen(false); onOpenConfig() }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150"
+              style={{ color: apiKey ? '#616161' : '#d3482b', background: apiKey ? '' : 'rgb(211 72 43 / 0.1)', border: apiKey ? '' : '1px solid rgb(211 72 43 / 0.3)' }}
+              title="打开完整设置"
+            >
+              <FontAwesomeIcon icon={faGear} className={`${apiKey ? '' : 'animate-pulse'} h-3.5 w-3.5`} />
+            </button>
+          </div>
         </div>
         <button onClick={handleSubmit} disabled={loading || !hasPrompt || !apiKey || customSizeErrors.length > 0}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-[0.97] disabled:active:scale-100"
