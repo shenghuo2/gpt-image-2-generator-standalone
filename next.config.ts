@@ -29,11 +29,12 @@ function resolveAppVersion() {
 }
 
 const appVersion = resolveAppVersion();
+const isDev = process.env.NODE_ENV === 'development';
 
 const nextConfig: NextConfig = {
   output: 'export',
-  assetPrefix: './',
-  allowedDevOrigins: ['192.168.123.154', 'localhost'],
+  assetPrefix: isDev ? undefined : './',
+  allowedDevOrigins: ['192.168.123.154', 'localhost', '127.0.0.1', '0.0.0.0', 'null'],
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
   },
