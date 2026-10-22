@@ -29,7 +29,7 @@ interface Props {
   onRetryJob: (job: ImageJob) => void
   onRetryHistory: (item: HistoryItem) => void
   onCardClick: (item: HistoryItem, imageIndex?: number) => void
-  onDelete: (id: string) => void
+  onDelete: (id: string) => Promise<boolean>
   history: HistoryItem[]
   multiImageLayout: MultiImageLayout
 }
@@ -59,11 +59,12 @@ interface CardFooterProps {
   timestamp?: number
   error?: string
   onRetry?: () => void
+  retrying?: boolean
   children?: React.ReactNode
 }
 
 
-function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCount, durationSeconds, timestamp, error, onRetry, children }: CardFooterProps) {
+function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCount, durationSeconds, timestamp, error, onRetry, retrying, children }: CardFooterProps) {
   return (
     <div className="flex flex-col gap-1.5 rounded-t-xl p-2.5" style={{ background: '#fafafa' }}>
       {prompt && <p className="line-clamp-1 text-xs font-medium" style={{ color: '#1a1a1a' }}>{prompt}</p>}
@@ -76,10 +77,10 @@ function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCou
           <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>{size}</span>
         )}
         {providerName && (
-          <span className="text-[10px]" style={{ color: '#919191' }}>{providerName}</span>
+          <span className="text-[10px]" style={{ color: '#6b6b6b' }}>{providerName}</span>
         )}
         {type && (
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: type === 'edit' ? 'rgb(37 99 235 / 0.08)' : 'rgb(22 163 74 / 0.08)', color: type === 'edit' ? '#2563eb' : '#16a34a' }}>{type === 'edit' ? '图生图' : '文生图'}</span>
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: type === 'edit' ? 'rgb(37 99 235 / 0.08)' : 'rgb(22 163 74 / 0.08)', color: type === 'edit' ? '#1d4ed8' : '#166534' }}>{type === 'edit' ? '图生图' : '文生图'}</span>
         )}
         {quality && (
           <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>质量：{QUALITY_CN[quality] || quality}</span>
@@ -87,16 +88,17 @@ function CardFooter({ prompt, ratio, size, quality, providerName, type, imageCou
         {imageCount != null && imageCount > 0 && (
           <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#616161' }}>{imageCount} 张</span>
         )}
-        {error && onRetry && (
-          <button onClick={(e) => { e.stopPropagation(); onRetry() }} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[10px] font-medium transition-colors hover:opacity-90 ml-auto" style={{ background: '#d3482b', color: '#fff' }}>
-            <FontAwesomeIcon icon={faArrowRotateRight} className="h-3 w-3" />重试
+        {onRetry && (
+          <button type="button" disabled={retrying} onClick={onRetry} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[10px] font-medium transition-colors hover:opacity-90 disabled:opacity-60 ml-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#346aea]" style={{ background: '#b33a24', color: '#fff' }}>
+            <FontAwesomeIcon icon={faArrowRotateRight} className="h-3 w-3" aria-hidden="true" />{retrying ? '重试中…' : '重试'}
           </button>
         )}
       </div>
+      {error && <p role="alert" className="break-words text-[11px]" style={{ color: '#b33a24' }}>{error}</p>}
       {(durationSeconds != null || timestamp != null) && (
         <div className="flex items-center justify-between">
-          <span className="text-[10px]" style={{ color: '#919191' }}>{durationSeconds != null ? formatSeconds(durationSeconds) : ''}</span>
-          {timestamp != null && <span className="text-[10px]" style={{ color: '#bfbfbf' }}>{formatTime(timestamp)}</span>}
+          <span className="text-[10px]" style={{ color: '#6b6b6b' }}>{durationSeconds != null ? formatSeconds(durationSeconds) : ''}</span>
+          {timestamp != null && <span className="text-[10px]" style={{ color: '#6b6b6b' }}>{formatTime(timestamp)}</span>}
         </div>
       )}
     </div>
@@ -117,7 +119,7 @@ export function ImageGrid({ jobs, onRetryJob, onRetryHistory, onCardClick, onDel
   const successJobs = jobs.filter(j => j.status === 'success' && j.url)
 
   return (
-    <div className="grid items-start gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
+    <div className="grid items-start gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))' }}>
       {pending.map((job) => {
         const elapsed = job.startedAt ? Math.max(0, Math.floor((now - job.startedAt) / 1000)) : 0
         const progress = job.status === 'running'
@@ -142,7 +144,7 @@ export function ImageGrid({ jobs, onRetryJob, onRetryHistory, onCardClick, onDel
               ) : (
                 <>
                   <div className="flex aspect-[4/3] w-full items-center justify-center" style={{ background: '#f5f5f5' }}>
-                    <div className="w-full max-w-[200px] rounded-xl border p-3" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
+                    <div role="status" aria-live="polite" className="w-full max-w-[200px] rounded-xl border p-3" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
                       <div className="mb-2 flex items-center justify-between text-xs" style={{ color: '#616161' }}>
                         <span>{job.status === 'queued' ? '排队中' : '生成中...'}</span>
                         <span>{job.status === 'running' ? formatSeconds(elapsed) : `第 ${job.index + 1} 张`}</span>
@@ -161,64 +163,72 @@ export function ImageGrid({ jobs, onRetryJob, onRetryHistory, onCardClick, onDel
       })}
       {successJobs.map((job) => (
         <div key={job.id} className="overflow-hidden rounded-xl border" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
-          <img loading="lazy" src={job.url || ''} alt="" style={{ width: '100%', height: 'auto', minHeight: 120, display: 'block', background: '#f5f5f5' }} />
+          <img loading="lazy" src={job.url || ''} alt={job.prompt || '生成的图片'} style={{ width: '100%', height: 'auto', minHeight: 120, display: 'block', background: '#f5f5f5' }} />
           <div className="p-2.5 flex items-center justify-end" style={{ background: '#fafafa' }}>
-            <span className="text-[10px]" style={{ color: '#bfbfbf' }}>生成成功</span>
+            <span className="text-[10px]" style={{ color: '#6b6b6b' }}>生成成功</span>
           </div>
         </div>
       ))}
       {history.map((item) => {
-        const hasImages = item.images.length > 0
-        const needsRetry = item.error || item.images.length < item.params.count
-        const isMulti = hasImages && item.images.length > 1
+        const imagesLoading = item.images.length > 0 && item.images.every(url => !url)
+        const hasImages = item.images.length > 0 && !imagesLoading
+        const needsRetry = !imagesLoading && item.images.length < item.params.count
+        const retrying = jobs.some(job => job.id.startsWith(`${item.id}:`))
+        const isMulti = item.images.length > 1
         const horizontal = isMulti && multiImageLayout === 'horizontal'
         return (
         <div
           key={item.id}
-          className="group/card relative cursor-pointer overflow-hidden rounded-xl border transition-shadow duration-200 hover:shadow-lg"
-          style={{ borderColor: hasImages ? 'rgb(0 0 0 / 0.1)' : 'rgb(234 179 8 / 0.3)', background: hasImages ? '#fff' : '#fffbeb', gridColumn: horizontal ? `span ${Math.min(item.images.length, 3)}` : undefined }}
-          onClick={() => onCardClick(item, 0)}
+          className="group/card relative overflow-hidden rounded-xl border transition-shadow duration-200 hover:shadow-lg"
+          style={{ borderColor: hasImages || imagesLoading ? 'rgb(0 0 0 / 0.1)' : 'rgb(234 179 8 / 0.3)', background: hasImages || imagesLoading ? '#fff' : '#fffbeb', gridColumn: horizontal ? '1 / -1' : undefined }}
         >
           <button
-            onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
-            className="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-red-600"
+            type="button"
+            onClick={() => { void onDelete(item.id) }}
+            aria-label={`删除记录：${item.prompt.slice(0, 30)}`}
+            className="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white transition-colors hover:bg-red-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#346aea]"
           >
             <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
           </button>
-          {hasImages ? (
+          {imagesLoading ? (
             <>
-              <div className={horizontal ? 'flex' : ''}>
+              <div role="status" className="flex aspect-[4/3] items-center justify-center text-xs" style={{ background: '#f5f5f5', color: '#616161' }}>读取历史图片…</div>
+              <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length} timestamp={item.timestamp} />
+            </>
+          ) : hasImages ? (
+            <>
+              <div className={horizontal ? 'grid grid-cols-2 gap-px bg-white sm:grid-cols-3 xl:grid-cols-4' : ''}>
                 {item.images.map((url, i) => (
-                  <div key={i} className={horizontal ? 'relative min-w-0 flex-1' : ''} style={isMulti && i < item.images.length - 1 ? (horizontal ? { borderRight: '2px solid rgba(255,255,255,0.8)', boxShadow: '2px 0 4px rgba(0,0,0,0.2)' } : { borderBottom: '2px solid rgba(255,255,255,0.8)', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }) : undefined} onClick={isMulti ? (e) => { e.stopPropagation(); onCardClick(item, i) } : undefined}>
+                  <button key={i} type="button" aria-label={`查看第 ${i + 1} 张图片：${item.prompt.slice(0, 50)}`} className={`${horizontal ? 'relative aspect-square min-w-0' : ''} block w-full text-left focus-visible:outline-2 focus-visible:outline-[#346aea]`} style={!horizontal && isMulti && i < item.images.length - 1 ? { borderBottom: '2px solid rgba(255,255,255,0.8)', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' } : undefined} onClick={() => onCardClick(item, i)}>
                     <img
                       loading="lazy"
                       src={url}
-                      alt=""
+                      alt={item.prompt}
                       style={horizontal
-                        ? { width: '100%', height: 'auto', display: 'block', background: '#f5f5f5', objectFit: 'cover', aspectRatio: '1' }
+                        ? { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', background: '#f5f5f5', objectFit: 'contain' }
                         : { width: '100%', height: 'auto', minHeight: 120, display: 'block', background: '#f5f5f5' }}
                     />
-                  </div>
+                  </button>
                 ))}
               </div>
-              <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length < item.params.count ? undefined : item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} error={needsRetry ? (item.error || partialErrorText(item.images.length, item.params.count)) : undefined} onRetry={needsRetry ? () => onRetryHistory(item) : undefined}>
+              <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length < item.params.count ? undefined : item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} error={item.error || (needsRetry ? partialErrorText(item.images.length, item.params.count) : undefined)} onRetry={needsRetry ? () => onRetryHistory(item) : undefined} retrying={retrying}>
                 {item.images.length < item.params.count && (
-                  <p className="text-[11px] font-medium" style={{ color: '#d3482b' }}>已生成 {item.images.length}/{item.params.count} 张</p>
+                  <p className="text-[11px] font-medium" style={{ color: '#b33a24' }}>已生成 {item.images.length}/{item.params.count} 张</p>
                 )}
               </CardFooter>
             </>
           ) : (
             <>
               {item.error && (
-                <div className="flex flex-col items-center gap-2 px-4 py-6 text-center" style={{ background: '#f5f5f5' }}>
+                <button type="button" onClick={() => onCardClick(item, 0)} className="flex w-full flex-col items-center gap-2 px-4 py-6 text-center focus-visible:outline-2 focus-visible:outline-[#346aea]" style={{ background: '#f5f5f5' }}>
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgb(211 72 43 / 0.1)', color: '#d3482b' }}>
                     <FontAwesomeIcon icon={faTriangleExclamation} className="h-3.5 w-3.5" />
                   </div>
-                  <p className="text-xs font-medium" style={{ color: '#d3482b' }}>生成失败</p>
+                  <p className="text-xs font-medium" style={{ color: '#b33a24' }}>生成失败</p>
                   <p className="line-clamp-2 text-[11px]" style={{ color: '#616161' }}>{item.error}</p>
-                </div>
+                </button>
               )}
-              <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} error={item.error} onRetry={item.error ? () => onRetryHistory(item) : undefined} />
+              <CardFooter prompt={item.prompt} ratio={item.params.ratio} size={item.params.size} quality={item.params.quality} providerName={item.params.provider?.providerName} type={item.type} imageCount={item.images.length} durationSeconds={item.params.durationSeconds} timestamp={item.timestamp} error={item.error} onRetry={needsRetry ? () => onRetryHistory(item) : undefined} retrying={retrying} />
             </>
           )}
         </div>

@@ -3,134 +3,190 @@ const DB_VERSION = 1
 const IMAGE_STORE = 'images'
 const REF_STORE = 'ref-images'
 
+let dbPromise: Promise<IDBDatabase> | null = null
+let cachedUsage: number | null = null
+let usageScan: Promise<number> | null = null
+let usageRevision = 0
+let mutationQueue: Promise<void> = Promise.resolve()
+
+function queueMutation<T>(work: () => Promise<T>): Promise<T> {
+  const task = mutationQueue.then(work)
+  mutationQueue = task.then(() => undefined, () => undefined)
+  return task
+}
+
 function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise
+  const opening = new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onerror = () => reject(req.error)
-    req.onsuccess = () => resolve(req.result)
+    req.onsuccess = () => {
+      const db = req.result
+      db.onversionchange = () => {
+        db.close()
+        dbPromise = null
+        cachedUsage = null
+      }
+      resolve(db)
+    }
     req.onupgradeneeded = () => {
       const db = req.result
       if (!db.objectStoreNames.contains(IMAGE_STORE)) db.createObjectStore(IMAGE_STORE)
       if (!db.objectStoreNames.contains(REF_STORE)) db.createObjectStore(REF_STORE)
     }
+  }).catch(error => {
+    dbPromise = null
+    throw error
   })
+  dbPromise = opening
+  return opening
 }
 
-// === Images store (key: `${historyId}_${index}`) ===
+function imageRange(historyId: string) {
+  const prefix = `${historyId}_`
+  return IDBKeyRange.bound(prefix, `${prefix}\uffff`)
+}
 
-export async function saveImage(historyId: string, index: number, url: string) {
+function recordUsageChange(delta: number) {
+  usageRevision++
+  if (cachedUsage !== null) cachedUsage = Math.max(0, cachedUsage + delta)
+}
+
+async function putBlob(storeName: string, key: string, blob: Blob, maxBytes?: number) {
   const db = await openDB()
+  const previous = await new Promise<Blob | undefined>((resolve, reject) => {
+    const req = db.transaction(storeName, 'readonly').objectStore(storeName).get(key)
+    req.onsuccess = () => resolve(req.result as Blob | undefined)
+    req.onerror = () => reject(req.error)
+  })
+  const delta = blob.size - (previous?.size || 0)
+  if (maxBytes !== undefined && await getStorageUsage() + delta > maxBytes) {
+    throw new Error('图片存储空间已达到设置的上限，请先清理历史记录或提高上限')
+  }
+  await new Promise<void>((resolve, reject) => {
+    const txn = db.transaction(storeName, 'readwrite')
+    txn.objectStore(storeName).put(blob, key)
+    txn.oncomplete = () => resolve()
+    txn.onerror = () => reject(txn.error)
+    txn.onabort = () => reject(txn.error)
+  })
+  recordUsageChange(delta)
+}
+
+export async function saveImage(historyId: string, index: number, url: string, maxBytes?: number): Promise<{ saved: boolean; error?: string }> {
   try {
     const resp = await fetch(url)
+    if (!resp.ok) throw new Error(`图片下载失败（HTTP ${resp.status}）`)
     const blob = await resp.blob()
-    await new Promise<void>((resolve, reject) => {
-      const txn = db.transaction(IMAGE_STORE, 'readwrite')
-      const store = txn.objectStore(IMAGE_STORE)
-      store.put(blob, `${historyId}_${index}`)
-      txn.oncomplete = () => resolve()
-      txn.onerror = () => reject(txn.error)
-    })
-    return true
-  } catch (e) {
-    console.error('saveImage failed for index', index, e)
-    return false
+    if (!blob.size || blob.type.startsWith('text/')) throw new Error('供应商返回的图片内容无效')
+    await queueMutation(() => putBlob(IMAGE_STORE, `${historyId}_${index}`, blob, maxBytes))
+    return { saved: true }
+  } catch (error) {
+    console.error('saveImage failed for index', index, error)
+    return { saved: false, error: error instanceof Error ? error.message : '图片保存失败' }
   }
 }
 
-export async function saveImages(historyId: string, urls: string[]) {
+export async function saveImages(historyId: string, urls: string[], maxBytes?: number) {
   let saved = 0
-  let writeIndex = 0
-  for (let i = 0; i < urls.length; i++) {
-    // Compact writes so a single failed save doesn't leave an index hole —
-    // a gap would orphan later blobs and misalign the persisted order with
-    // the in-memory array.
-    if (await saveImage(historyId, writeIndex, urls[i])) {
-      saved++
-      writeIndex++
-    }
+  for (const url of urls) {
+    if ((await saveImage(historyId, saved, url, maxBytes)).saved) saved++
   }
   return saved
 }
 
 export async function loadImages(historyId: string, count: number): Promise<string[]> {
   const db = await openDB()
-  const txn = db.transaction(IMAGE_STORE, 'readonly')
-  const store = txn.objectStore(IMAGE_STORE)
-  // Don't assume a contiguous 0..count-1 range: a past saveImage failure could
-  // have left an index hole, and the old `else break` dropped every image after
-  // the gap. Gather the actual stored keys for this history and load in order.
-  const prefix = `${historyId}_`
-  const allKeys = await new Promise<string[]>((resolve, reject) => {
-    const req = store.getAllKeys()
-    req.onsuccess = () => resolve(req.result as string[])
-    req.onerror = () => reject(req.error)
+  const entries = await new Promise<Array<{ index: number; blob: Blob }>>((resolve, reject) => {
+    const found: Array<{ index: number; blob: Blob }> = []
+    const txn = db.transaction(IMAGE_STORE, 'readonly')
+    const req = txn.objectStore(IMAGE_STORE).openCursor(imageRange(historyId))
+    req.onsuccess = () => {
+      const cursor = req.result
+      if (!cursor) return
+      const index = Number(String(cursor.key).slice(historyId.length + 1))
+      if (Number.isInteger(index) && index >= 0 && index < count && cursor.value instanceof Blob) {
+        found.push({ index, blob: cursor.value })
+      }
+      cursor.continue()
+    }
+    txn.oncomplete = () => resolve(found)
+    txn.onerror = () => reject(txn.error)
+    txn.onabort = () => reject(txn.error)
   })
-  const indices = allKeys
-    .filter((k): k is string => typeof k === 'string' && k.startsWith(prefix))
-    .map(k => Number(k.slice(prefix.length)))
-    .filter(idx => Number.isInteger(idx) && idx >= 0 && idx < count)
-    .sort((a, b) => a - b)
-
-  const urls: string[] = []
-  for (const idx of indices) {
-    const blob = await new Promise<Blob | undefined>((resolve, reject) => {
-      const req = store.get(`${historyId}_${idx}`)
-      req.onsuccess = () => resolve(req.result as Blob | undefined)
-      req.onerror = () => reject(req.error)
-    })
-    if (blob) urls.push(URL.createObjectURL(blob))
-  }
-  return urls
+  return entries.sort((a, b) => a.index - b.index).map(({ blob }) => URL.createObjectURL(blob))
 }
 
 export async function deleteImages(historyId: string) {
-  const db = await openDB()
-  const store = db.transaction(IMAGE_STORE, 'readwrite').objectStore(IMAGE_STORE)
-  // Delete all entries with matching prefix
-  const keys = await new Promise<string[]>((resolve, reject) => {
-    const req = store.getAllKeys()
-    req.onsuccess = () => resolve(req.result as string[])
-    req.onerror = () => reject(req.error)
+  await queueMutation(async () => {
+    const db = await openDB()
+    let deletedBytes = 0
+    await new Promise<void>((resolve, reject) => {
+      const txn = db.transaction(IMAGE_STORE, 'readwrite')
+      const req = txn.objectStore(IMAGE_STORE).openCursor(imageRange(historyId))
+      req.onsuccess = () => {
+        const cursor = req.result
+        if (!cursor) return
+        if (cursor.value instanceof Blob) deletedBytes += cursor.value.size
+        cursor.delete()
+        cursor.continue()
+      }
+      txn.oncomplete = () => resolve()
+      txn.onerror = () => reject(txn.error)
+      txn.onabort = () => reject(txn.error)
+    })
+    recordUsageChange(-deletedBytes)
   })
-  const txn = db.transaction(IMAGE_STORE, 'readwrite')
-  const s = txn.objectStore(IMAGE_STORE)
-  for (const key of keys) {
-    if (typeof key === 'string' && key.startsWith(`${historyId}_`)) s.delete(key)
-  }
-  await new Promise<void>((resolve) => { txn.oncomplete = () => resolve() })
 }
 
-// === Ref images store (key: content hash) ===
-
-async function sha256Prefix(blob: Blob): Promise<string> {
-  const buf = await blob.arrayBuffer()
+async function contentHash(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
   try {
-    // Try Web Crypto (needs HTTPS/localhost)
-    const hash = await crypto.subtle.digest('SHA-256', buf)
-    const arr = Array.from(new Uint8Array(hash))
-    return arr.slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('')
+    const hash = await crypto.subtle.digest('SHA-256', bytes)
+    return Array.from(new Uint8Array(hash)).map(byte => byte.toString(16).padStart(2, '0')).join('')
   } catch {
-    // Fallback: FNV-1a hash for HTTP contexts
-    const arr = new Uint8Array(buf.slice(0, 1024))
-    let h = 2166136261
-    for (let i = 0; i < arr.length; i++) {
-      h ^= arr[i]
-      h = Math.imul(h, 16777619)
+    // Hash the whole file, then compare bytes before reusing a key.
+    let first = 2166136261
+    let second = 2166136261 ^ 0x9e3779b9
+    for (const byte of bytes) {
+      first = Math.imul(first ^ byte, 16777619)
+      second = Math.imul(second ^ byte, 16777619)
     }
-    return (h >>> 0).toString(16).padStart(8, '0')
+    return `fnv-${(first >>> 0).toString(16).padStart(8, '0')}${(second >>> 0).toString(16).padStart(8, '0')}-${bytes.length}`
   }
 }
 
-export async function saveRefImage(blob: Blob): Promise<string> {
-  const key = await sha256Prefix(blob)
-  const db = await openDB()
-  await new Promise<void>((resolve, reject) => {
-    const txn = db.transaction(REF_STORE, 'readwrite')
-    txn.objectStore(REF_STORE).put(blob, key)
-    txn.oncomplete = () => resolve()
-    txn.onerror = () => reject(txn.error)
+async function sameBlob(first: Blob, second: Blob) {
+  if (first.size !== second.size) return false
+  const [a, b] = await Promise.all([first.arrayBuffer(), second.arrayBuffer()])
+  const left = new Uint8Array(a)
+  const right = new Uint8Array(b)
+  return left.every((byte, index) => byte === right[index])
+}
+
+export async function saveRefImage(blob: Blob, maxBytes?: number, onStored?: (key: string) => void): Promise<string> {
+  const baseKey = await contentHash(blob)
+  return queueMutation(async () => {
+    const db = await openDB()
+    let key = baseKey
+    let suffix = 1
+    while (true) {
+      const existing = await new Promise<Blob | undefined>((resolve, reject) => {
+        const req = db.transaction(REF_STORE, 'readonly').objectStore(REF_STORE).get(key)
+        req.onsuccess = () => resolve(req.result as Blob | undefined)
+        req.onerror = () => reject(req.error)
+      })
+      if (!existing) break
+      if (await sameBlob(existing, blob)) {
+        onStored?.(key)
+        return key
+      }
+      key = `${baseKey}-${suffix++}`
+    }
+    await putBlob(REF_STORE, key, blob, maxBytes)
+    onStored?.(key)
+    return key
   })
-  return key
 }
 
 export async function loadRefImage(key: string): Promise<string | null> {
@@ -141,57 +197,77 @@ export async function loadRefImage(key: string): Promise<string | null> {
       req.onsuccess = () => resolve(req.result as Blob | undefined)
       req.onerror = () => reject(req.error)
     })
-    if (!blob) return null
-    return URL.createObjectURL(blob)
+    return blob ? URL.createObjectURL(blob) : null
   } catch { return null }
 }
 
-export async function deleteRefImage(key: string) {
-  const db = await openDB()
-  const store = db.transaction(REF_STORE, 'readwrite').objectStore(REF_STORE)
-  store.delete(key)
-  await new Promise<void>((resolve) => { store.transaction.oncomplete = () => resolve() })
+export async function pruneRefImages(usedKeys: () => Iterable<string>) {
+  await queueMutation(async () => {
+    const keep = new Set(usedKeys())
+    const db = await openDB()
+    let deletedBytes = 0
+    await new Promise<void>((resolve, reject) => {
+      const txn = db.transaction(REF_STORE, 'readwrite')
+      const req = txn.objectStore(REF_STORE).openCursor()
+      req.onsuccess = () => {
+        const cursor = req.result
+        if (!cursor) return
+        if (!keep.has(String(cursor.key))) {
+          if (cursor.value instanceof Blob) deletedBytes += cursor.value.size
+          cursor.delete()
+        }
+        cursor.continue()
+      }
+      txn.oncomplete = () => resolve()
+      txn.onerror = () => reject(txn.error)
+      txn.onabort = () => reject(txn.error)
+    })
+    if (deletedBytes) recordUsageChange(-deletedBytes)
+  })
 }
 
-// === Storage usage ===
+async function scanStorageUsage(): Promise<number> {
+  const db = await openDB()
+  let total = 0
+  for (const name of [IMAGE_STORE, REF_STORE]) {
+    await new Promise<void>((resolve, reject) => {
+      const txn = db.transaction(name, 'readonly')
+      const req = txn.objectStore(name).openCursor()
+      req.onsuccess = () => {
+        const cursor = req.result
+        if (!cursor) return
+        if (cursor.value instanceof Blob) total += cursor.value.size
+        cursor.continue()
+      }
+      txn.oncomplete = () => resolve()
+      txn.onerror = () => reject(txn.error)
+      txn.onabort = () => reject(txn.error)
+    })
+  }
+  return total
+}
 
 export async function getStorageUsage(): Promise<number> {
-  try {
-    const db = await openDB()
-    let total = 0
-    for (const name of [IMAGE_STORE, REF_STORE]) {
-      const store = db.transaction(name, 'readonly').objectStore(name)
-      const values = await new Promise<unknown[]>((resolve, reject) => {
-        const req = store.getAll()
-        req.onsuccess = () => resolve(req.result || [])
-        req.onerror = () => reject(req.error)
-      })
-      for (const v of values) {
-        if (v instanceof Blob) total += v.size
-      }
-    }
+  if (cachedUsage !== null) return cachedUsage
+  if (usageScan) return usageScan
+  const revision = usageRevision
+  usageScan = scanStorageUsage().then(async total => {
+    usageScan = null
+    if (revision !== usageRevision) return getStorageUsage()
+    cachedUsage = total
     return total
-  } catch { return 0 }
-}
-
-// Get all stored ref image keys (for listing)
-export async function getAllRefKeys(): Promise<string[]> {
-  const db = await openDB()
-  const keys = await new Promise<string[]>((resolve, reject) => {
-    const req = db.transaction(REF_STORE, 'readonly').objectStore(REF_STORE).getAllKeys()
-    req.onsuccess = () => resolve(req.result as string[])
-    req.onerror = () => reject(req.error)
+  }).catch(error => {
+    usageScan = null
+    throw error
   })
-  return keys
+  return usageScan
 }
 
 export async function getImageCount(): Promise<number> {
-  try {
-    const db = await openDB()
-    return await new Promise<number>((resolve, reject) => {
-      const req = db.transaction(IMAGE_STORE, 'readonly').objectStore(IMAGE_STORE).count()
-      req.onsuccess = () => resolve(req.result)
-      req.onerror = () => reject(req.error)
-    })
-  } catch { return 0 }
+  const db = await openDB()
+  return new Promise<number>((resolve, reject) => {
+    const req = db.transaction(IMAGE_STORE, 'readonly').objectStore(IMAGE_STORE).count()
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
 }

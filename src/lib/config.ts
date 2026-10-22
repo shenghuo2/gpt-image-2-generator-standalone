@@ -53,6 +53,12 @@ export function isRetiredProvider(provider: Pick<ProviderEntry, 'id'> | string) 
   return RETIRED_PROVIDER_IDS.has(id)
 }
 
+export function supportedActiveProviderId(providers: ProviderEntry[], requestedId: string) {
+  return providers.find(p => p.id === requestedId && !isRetiredProvider(p))?.id
+    || providers.find(p => !isRetiredProvider(p))?.id
+    || getDefaultConfig().activeProviderId
+}
+
 export function resolveProviderCustomSizeSupport(providerId: string, model: string, fallback: boolean) {
   return providerId === 'gptgod' ? model.trim().toLowerCase() === GPTGOD_CUSTOM_SIZE_MODEL : fallback
 }
@@ -99,7 +105,7 @@ function migrateLegacy(raw: Record<string, unknown>): StandaloneConfig {
     } else {
       cfg.providers.push(migratedProvider)
     }
-    cfg.activeProviderId = matched.id
+    cfg.activeProviderId = supportedActiveProviderId(cfg.providers, matched.id)
   } else if (apiKey) {
     // Custom provider — add it
     cfg.providers.push({ id: CUSTOM_PROVIDER_ID, name: '自定义', model, apiKey, baseUrl, supportsResponseFormat: false, supportsCustomSize: true, maxConcurrency: 1 })
@@ -140,9 +146,7 @@ export function loadConfig(): StandaloneConfig {
               })
         }
       }
-      merged.activeProviderId = merged.providers.some(p => p.id === raw.activeProviderId)
-        ? raw.activeProviderId as string
-        : merged.providers[0].id
+      merged.activeProviderId = supportedActiveProviderId(merged.providers, raw.activeProviderId)
       merged.maxStorageMB = typeof raw.maxStorageMB === 'number' ? raw.maxStorageMB : 500
       merged.maxHistoryItems = typeof raw.maxHistoryItems === 'number' ? raw.maxHistoryItems : 300
       merged.multiImageLayout = (raw.multiImageLayout === 'vertical' ? 'vertical' : 'horizontal') as MultiImageLayout
@@ -160,8 +164,8 @@ export function saveConfig(config: StandaloneConfig) {
 }
 
 export function getActiveProvider(config: StandaloneConfig): ProviderEntry {
-  const found = config.providers.find(p => p.id === config.activeProviderId)
-  return found || config.providers[0] || getDefaultConfig().providers[0]
+  const activeId = supportedActiveProviderId(config.providers, config.activeProviderId)
+  return config.providers.find(p => p.id === activeId) || getDefaultConfig().providers[0]
 }
 
 export { DEFAULTS, CUSTOM_PROVIDER_ID }

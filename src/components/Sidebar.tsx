@@ -1,10 +1,11 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faChevronDown, faCropSimple,
   faGear, faMinus, faPlus, faWandMagicSparkles,
-  faXmark, faLayerGroup, faCheck, faTriangleExclamation,
+  faXmark, faLayerGroup, faCheck, faTriangleExclamation, faArrowLeft, faArrowRight,
 } from '@fortawesome/free-solid-svg-icons'
 import { RATIO_OPTIONS, round16, availableTiersFor, type PixelTier, type Quality } from '@/lib/provider-settings'
 import { DEFAULTS, isRetiredProvider, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
@@ -39,12 +40,13 @@ interface Props {
   quality: Quality; setQuality: (v: Quality) => void
   count: number; setCount: (v: number) => void
   refImages: RefItem[]; addFiles: (files: FileList | File[]) => void
+  refImportError: string
   removeRef: (id: string) => void; clearRefs: () => void; onReorderRefs: (from: number, to: number) => void
   onReorderActive: (v: boolean) => void
   sizeOpen: boolean; setSizeOpen: (v: boolean) => void
   providers: ProviderEntry[]; activeProvider: ProviderEntry; concurrency: number; outputSize: string
   onQuickProviderChange: (providerId: string) => void
-  loading: boolean; hasPrompt: boolean; apiKey: string
+  loading: boolean; historyReady: boolean; hasPrompt: boolean; apiKey: string
   handleSubmit: () => void; autoOptions: Array<{ value: string; title: string; subtitle: string; ratio: string }>
   selectedSizeLabel: string
   configOpen: boolean; setConfigOpen: (v: boolean) => void; onOpenConfig: () => void
@@ -58,20 +60,22 @@ interface Props {
   storageUsage: number
   guideOpen: boolean; setGuideOpen: (v: boolean) => void
   onSaveConfig: () => void
+  configSaveError: string
+  onConfigCloseAutoFocus: () => void
 }
 
 export function Sidebar({
   prompt, setPrompt, ratio, setRatio, customSize, setCustomSize, customSizeErrors, pixelTier, setPixelTier,
-  quality, setQuality, count, setCount, refImages, addFiles, removeRef, clearRefs, onReorderRefs, onReorderActive,
+  quality, setQuality, count, setCount, refImages, addFiles, refImportError, removeRef, clearRefs, onReorderRefs, onReorderActive,
   sizeOpen, setSizeOpen, providers, activeProvider, concurrency, outputSize, onQuickProviderChange,
-  loading, hasPrompt, apiKey, handleSubmit, autoOptions, selectedSizeLabel,
+  loading, historyReady, hasPrompt, apiKey, handleSubmit, autoOptions, selectedSizeLabel,
   configOpen, setConfigOpen, onOpenConfig,
   draftProviders, setDraftProviders, draftActiveId, setDraftActiveId,
   draftMaxStorageMB, setDraftMaxStorageMB,
   draftMaxHistoryItems, setDraftMaxHistoryItems,
   draftMultiImageLayout, setDraftMultiImageLayout,
   historyCount, localStorageUsage, imageCount,
-  showKey, setShowKey, storageUsage, guideOpen, setGuideOpen, onSaveConfig,
+  showKey, setShowKey, storageUsage, guideOpen, setGuideOpen, onSaveConfig, configSaveError, onConfigCloseAutoFocus,
 }: Props) {
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [previewRefUrl, setPreviewRefUrl] = useState<string | null>(null)
@@ -79,6 +83,10 @@ export function Sidebar({
   const sizeButtonRef = useRef<HTMLButtonElement>(null)
   const sizeMenuRef = useRef<HTMLDivElement>(null)
   const providerMenuRef = useRef<HTMLDivElement>(null)
+  const providerButtonRef = useRef<HTMLButtonElement>(null)
+  const providerFirstOptionRef = useRef<HTMLButtonElement>(null)
+  const previewTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const guideTriggerRef = useRef<HTMLElement | null>(null)
   const [sizeMenuStyle, setSizeMenuStyle] = useState<React.CSSProperties>({})
 
   const visibleTiers = useMemo(
@@ -101,19 +109,13 @@ export function Sidebar({
   }, [activeProvider.supportsCustomSize, ratio, setRatio])
 
   useEffect(() => {
-    if (!previewRefUrl) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewRefUrl(null) }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [previewRefUrl])
-
-  useEffect(() => {
     if (!providerMenuOpen) return
+    providerFirstOptionRef.current?.focus()
     const closeOnOutsideClick = (event: PointerEvent) => {
       if (!providerMenuRef.current?.contains(event.target as Node)) setProviderMenuOpen(false)
     }
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setProviderMenuOpen(false)
+      if (event.key === 'Escape') { setProviderMenuOpen(false); providerButtonRef.current?.focus() }
     }
     document.addEventListener('pointerdown', closeOnOutsideClick)
     window.addEventListener('keydown', closeOnEscape)
@@ -122,6 +124,15 @@ export function Sidebar({
       window.removeEventListener('keydown', closeOnEscape)
     }
   }, [providerMenuOpen])
+
+  useEffect(() => {
+    if (!sizeOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setSizeOpen(false); sizeButtonRef.current?.focus() }
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [sizeOpen, setSizeOpen])
 
   useEffect(() => {
     if (!sizeOpen || !sizeButtonRef.current) return
@@ -145,8 +156,8 @@ export function Sidebar({
   }, [sizeOpen])
 
   return (
-    <aside className="flex w-full max-h-[70vh] lg:max-h-none lg:w-[400px] shrink-0 flex-col overflow-hidden border-b lg:border-b-0 lg:border-r" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
-      <div className="flex-1 overflow-y-auto px-5 pb-4 pt-5 custom-scrollbar">
+    <aside className="flex w-full shrink-0 flex-col border-b lg:w-[400px] lg:overflow-hidden lg:border-b-0 lg:border-r" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
+      <div className="flex-1 px-5 pb-4 pt-5 lg:overflow-y-auto custom-scrollbar">
         {/* Ref images */}
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
@@ -170,20 +181,26 @@ export function Sidebar({
                   onDragEnter={() => { if (dragIdx != null && dragIdx !== idx) { onReorderRefs(dragIdx, idx); setDragIdx(idx) } }}
                   onDragEnd={() => { onReorderActive(false); setDragIdx(null) }}
                   onDrop={(e) => e.preventDefault()}
-                  onClick={() => setPreviewRefUrl(item.url)}
                   className={`group relative aspect-square overflow-hidden rounded-lg border transition-opacity duration-150 ${dragIdx === idx ? 'opacity-40' : ''}`}
-                  style={{ background: '#ececec', borderColor: 'rgb(0 0 0 / 0.08)', cursor: 'pointer' }}
+                  style={{ background: '#ececec', borderColor: 'rgb(0 0 0 / 0.08)' }}
                 >
-                  <img src={item.url} alt="" className="h-full w-full object-cover pointer-events-none" />
-                  <button onClick={(e) => { e.stopPropagation(); removeRef(item.id) }} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white">
+                  <button type="button" onClick={(event) => { previewTriggerRef.current = event.currentTarget; setPreviewRefUrl(item.url) }} aria-label={`预览参考图 ${idx + 1}`} className="block h-full w-full focus-visible:outline-2 focus-visible:outline-[#346aea]">
+                    <img src={item.url} alt={`参考图 ${idx + 1}`} className="h-full w-full object-cover pointer-events-none" />
+                  </button>
+                  <button type="button" onClick={() => removeRef(item.id)} aria-label={`移除参考图 ${idx + 1}`} className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white focus-visible:outline-2 focus-visible:outline-[#346aea]">
                     <FontAwesomeIcon icon={faXmark} className="h-3 w-3" />
                   </button>
+                  <div className="absolute bottom-1 left-1 flex gap-1">
+                    <button type="button" disabled={idx === 0} onClick={() => onReorderRefs(idx, idx - 1)} aria-label={`将参考图 ${idx + 1} 前移`} className="flex h-6 w-6 items-center justify-center rounded bg-black/70 text-white disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-[#346aea]"><FontAwesomeIcon icon={faArrowLeft} className="h-2.5 w-2.5" /></button>
+                    <button type="button" disabled={idx === refImages.length - 1} onClick={() => onReorderRefs(idx, idx + 1)} aria-label={`将参考图 ${idx + 1} 后移`} className="flex h-6 w-6 items-center justify-center rounded bg-black/70 text-white disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-[#346aea]"><FontAwesomeIcon icon={faArrowRight} className="h-2.5 w-2.5" /></button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
-          <input id="ref-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && addFiles(e.target.files)} />
+          <input id="ref-input" name="reference-images" aria-label="选择参考图片" type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
           <p className="mt-1.5 text-[10px]" style={{ color: '#3c3a3a' }}>支持粘贴 / Ctrl+V / 拖拽添加图片</p>
+          {refImportError && <p role="alert" className="mt-1.5 text-xs" style={{ color: '#b33a24' }}>{refImportError}</p>}
           {refImages.length > 0 && (
             <button onClick={clearRefs} className="mt-2 text-xs" style={{ color: '#616161' }}>清空参考图</button>
           )}
@@ -191,9 +208,9 @@ export function Sidebar({
 
         {/* Prompt */}
         <div className="mb-4">
-          <label className="mb-2.5 block text-sm font-medium" style={{ color: '#1a1a1a' }}>提示词</label>
+          <label htmlFor="generation-prompt" className="mb-2.5 block text-sm font-medium" style={{ color: '#1a1a1a' }}>提示词</label>
           <div className="overflow-hidden rounded-xl border transition-colors duration-200 focus-within:border-[#346aea] hover:border-black/20" style={{ background: 'rgb(0 0 0 / 0.04)', borderColor: 'rgb(0 0 0 / 0.15)' }}>
-            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
+            <textarea id="generation-prompt" name="prompt" autoComplete="off" value={prompt} onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit() }}
               placeholder="描述你想生成的图片..."
               className="h-36 w-full resize-y bg-transparent px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20"
@@ -204,17 +221,17 @@ export function Sidebar({
         {/* Controls: count + size + pixel */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <div className="flex h-10 items-center overflow-hidden rounded-lg" style={{ background: 'rgb(0 0 0 / 0.04)' }}>
-            <button onClick={() => setCount(clamp(count - 1))} className="flex h-10 w-9 items-center justify-center text-sm hover:bg-black/10 transition-colors duration-150" style={{ color: '#616161' }}>
+            <button type="button" aria-label="减少生成数量" onClick={() => setCount(clamp(count - 1))} className="flex h-10 w-9 items-center justify-center text-sm hover:bg-black/10 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[#346aea]" style={{ color: '#616161' }}>
               <FontAwesomeIcon icon={faMinus} className="h-3 w-3" />
             </button>
             <span className="w-7 text-center text-sm font-semibold" style={{ color: '#1a1a1a' }}>{count}</span>
-            <button onClick={() => setCount(clamp(count + 1))} className="flex h-10 w-9 items-center justify-center text-sm hover:bg-black/10 transition-colors duration-150" style={{ color: '#616161' }}>
+            <button type="button" aria-label="增加生成数量" onClick={() => setCount(clamp(count + 1))} className="flex h-10 w-9 items-center justify-center text-sm hover:bg-black/10 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[#346aea]" style={{ color: '#616161' }}>
               <FontAwesomeIcon icon={faPlus} className="h-3 w-3" />
             </button>
           </div>
 
           <div className="relative flex-1">
-            <button ref={sizeButtonRef} onClick={() => setSizeOpen(!sizeOpen)} className="flex h-10 w-full items-center justify-between rounded-lg px-3 text-sm hover:bg-black/10 transition-colors duration-150" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#1a1a1a' }}>
+            <button type="button" ref={sizeButtonRef} aria-label={`图片尺寸：${selectedSizeLabel}`} aria-expanded={sizeOpen} onClick={() => setSizeOpen(!sizeOpen)} className="flex h-10 w-full items-center justify-between rounded-lg px-3 text-sm hover:bg-black/10 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[#346aea]" style={{ background: 'rgb(0 0 0 / 0.04)', color: '#1a1a1a' }}>
               <span className="inline-flex items-center gap-2 truncate">
                 <FontAwesomeIcon icon={faCropSimple} className="h-3.5 w-3.5" style={{ color: '#616161' }} />
                 <span className="text-xs">{selectedSizeLabel}</span>
@@ -255,46 +272,46 @@ export function Sidebar({
               background: 'rgb(0 0 0 / 0.1)',
             }} />
             {visibleTiers.map((tier) => (
-              <button key={tier.value} onClick={() => setPixelTier(tier.value)} className="relative h-full flex-1 rounded-md text-xs font-medium transition-colors duration-150"
-                style={{ color: pixelTier === tier.value ? '#1a1a1a' : '#919191' }} title={tier.estimate}>{tier.label}</button>
+              <button key={tier.value} type="button" aria-pressed={pixelTier === tier.value} onClick={() => setPixelTier(tier.value)} className="relative h-full flex-1 rounded-md text-xs font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[#346aea]"
+                style={{ color: pixelTier === tier.value ? '#1a1a1a' : '#6b6b6b' }} title={tier.estimate}>{tier.label}</button>
             ))}
           </div>
           )}
         </div>
         {!activeProvider.supportsCustomSize && (
-          <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#b56a00' }}>该供应商仅支持标准图片尺寸，所选比例会自动映射为最接近的方图、横图或竖图</p>
+          <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#8a4f00' }}>该供应商仅支持标准图片尺寸，所选比例会自动映射为最接近的方图、横图或竖图</p>
         )}
         {activeProvider.supportsCustomSize && visibleTiers.length < 3 && ratio !== 'custom' && (
-          <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#d3482b' }}>因最大边长限制（&lt; 3840px），该比例仅支持最高 2K 分辨率</p>
+          <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#b33a24' }}>因最大边长限制（&lt; 3840px），该比例仅支持最高 2K 分辨率</p>
         )}
         {activeProvider.supportsCustomSize && APPROX_RATIO_HINT[ratio] && (
-          <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#919191' }}>{APPROX_RATIO_HINT[ratio]}</p>
+          <p className="mb-4 -mt-2 text-[10px] leading-relaxed" style={{ color: '#6b6b6b' }}>{APPROX_RATIO_HINT[ratio]}</p>
         )}
 
         {activeProvider.supportsCustomSize && ratio === 'custom' && (
           <div className="mb-4">
             <div className="flex items-center gap-2">
-              <input value={customSize.w || ''} onChange={(e) => setCustomSize({ ...customSize, w: Number(e.target.value) || 0 })}
+              <input aria-label="自定义宽度（像素）" name="image-width" value={customSize.w || ''} onChange={(e) => setCustomSize({ ...customSize, w: Number(e.target.value) || 0 })}
                 onBlur={() => setCustomSize({ ...customSize, w: round16(Math.max(16, customSize.w)) })}
                 type="number" min={16} step={16} placeholder="宽"
                 className="h-10 min-w-0 flex-1 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                 style={{ background: '#fff', borderColor: customSizeErrors.length ? 'rgb(211 72 43 / 0.5)' : 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
               <span className="text-sm font-medium shrink-0" style={{ color: '#919191' }}>×</span>
-              <input value={customSize.h || ''} onChange={(e) => setCustomSize({ ...customSize, h: Number(e.target.value) || 0 })}
+              <input aria-label="自定义高度（像素）" name="image-height" value={customSize.h || ''} onChange={(e) => setCustomSize({ ...customSize, h: Number(e.target.value) || 0 })}
                 onBlur={() => setCustomSize({ ...customSize, h: round16(Math.max(16, customSize.h)) })}
                 type="number" min={16} step={16} placeholder="高"
                 className="h-10 min-w-0 flex-1 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
                 style={{ background: '#fff', borderColor: customSizeErrors.length ? 'rgb(211 72 43 / 0.5)' : 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} />
-              <span className="text-[10px] shrink-0" style={{ color: '#919191' }}>{(round16(customSize.w) * round16(customSize.h) / 1000000).toFixed(2)}M px</span>
+              <span className="text-[10px] shrink-0" style={{ color: '#6b6b6b' }}>{(round16(customSize.w) * round16(customSize.h) / 1000000).toFixed(2)}M px</span>
             </div>
             {customSizeErrors.length > 0 && (
               <div className="mt-1.5 flex flex-col gap-0.5">
                 {customSizeErrors.map((err, i) => (
-                  <span key={i} className="text-[10px]" style={{ color: '#d3482b' }}>{err}</span>
+                  <span key={i} className="text-[10px]" style={{ color: '#b33a24' }}>{err}</span>
                 ))}
               </div>
             )}
-            <p className="mt-1.5 text-[10px]" style={{ color: '#bfbfbf' }}>宽高自动对齐到 16 倍数，长短边比 ≤ 3:1，边长 &lt; 3840</p>
+            <p className="mt-1.5 text-[10px]" style={{ color: '#6b6b6b' }}>宽高自动对齐到 16 倍数，长短边比 ≤ 3:1，边长 &lt; 3840</p>
           </div>
         )}
 
@@ -308,7 +325,7 @@ export function Sidebar({
               background: '#1a1a1a',
             }} />
             {QUALITIES.map((item) => (
-              <button key={item} onClick={() => setQuality(item)} className="relative h-8 flex-1 rounded-md text-xs font-medium transition-colors duration-150"
+              <button key={item} type="button" aria-pressed={quality === item} onClick={() => setQuality(item)} className="relative h-8 flex-1 rounded-md text-xs font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[#346aea]"
                 style={{ color: quality === item ? '#fff' : '#616161' }}>{QUALITY_LABELS[item]}</button>
             ))}
           </div>
@@ -318,25 +335,46 @@ export function Sidebar({
 
       {/* Footer */}
       <div className="shrink-0 border-t px-4 pt-2 pb-1" style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
-        <span className="text-[10px]" style={{ color: '#919191' }}>纯静态站点，数据均在浏览器本地，无服务端</span>
+        <span className="text-[10px]" style={{ color: '#6b6b6b' }}>图片与配置保存在本地；生成请求直达供应商</span>
       </div>
       <div className="shrink-0 space-y-3 border-t p-4" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
         <div ref={providerMenuRef} className="relative">
+          <div className="flex items-center gap-2 text-xs" style={{ color: '#616161' }}>
+            <button type="button" ref={providerButtonRef} onClick={() => setProviderMenuOpen(!providerMenuOpen)} aria-expanded={providerMenuOpen}
+              className="flex h-8 min-w-0 items-center gap-2 rounded-lg border px-2.5 text-left transition-colors hover:bg-black/5"
+              style={{ maxWidth: '150px', color: '#346aea', background: providerMenuOpen ? 'rgb(52 106 234 / 0.08)' : 'rgb(52 106 234 / 0.04)', borderColor: 'rgb(52 106 234 / 0.18)' }}
+              title="快速切换供应商">
+              <FontAwesomeIcon icon={faLayerGroup} className="h-3 w-3 shrink-0" />
+              <span className="truncate font-medium">{activeProvider.name}</span>
+              <FontAwesomeIcon icon={faChevronDown} className="h-2.5 w-2.5 shrink-0 transition-transform"
+                style={{ transform: providerMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+            </button>
+            <span className="ml-auto shrink-0 text-[10px]" style={{ color: '#6b6b6b' }}>并发 {concurrency} · {outputSize}</span>
+            <button
+              onClick={() => { setProviderMenuOpen(false); onOpenConfig() }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150"
+              style={{ color: apiKey ? '#616161' : '#d3482b', background: apiKey ? '' : 'rgb(211 72 43 / 0.1)', border: apiKey ? '' : '1px solid rgb(211 72 43 / 0.3)' }}
+              title="打开完整设置"
+              aria-label="打开完整设置"
+            >
+              <FontAwesomeIcon icon={faGear} className={`${apiKey ? '' : 'animate-pulse'} h-3.5 w-3.5`} />
+            </button>
+          </div>
           {providerMenuOpen && (
             <div className="absolute bottom-full left-0 right-0 z-[60] mb-2 overflow-y-auto rounded-xl border p-1.5 shadow-2xl"
               style={{ maxHeight: 'min(280px, 45vh)', background: '#fff', borderColor: 'rgb(0 0 0 / 0.1)' }}>
               <div className="flex items-center justify-between px-2 py-1.5">
                 <span className="text-xs font-semibold" style={{ color: '#1a1a1a' }}>快速切换供应商</span>
-                <span className="max-w-[160px] truncate text-[10px]" style={{ color: '#919191' }}>{activeProvider.model || DEFAULTS.model}</span>
+                <span className="max-w-[160px] truncate text-[10px]" style={{ color: '#6b6b6b' }}>{activeProvider.model || DEFAULTS.model}</span>
               </div>
               <div className="space-y-1">
-                {providers.map((provider) => {
+                {providers.map((provider, index) => {
                   const selected = provider.id === activeProvider.id
                   const retired = isRetiredProvider(provider)
                   return (
-                    <button key={provider.id} type="button" disabled={retired}
-                      onClick={() => { onQuickProviderChange(provider.id); setProviderMenuOpen(false) }}
-                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-black/5 disabled:cursor-not-allowed"
+                    <button key={provider.id} ref={index === 0 ? providerFirstOptionRef : undefined} type="button" disabled={retired}
+                      onClick={() => { onQuickProviderChange(provider.id); setProviderMenuOpen(false); providerButtonRef.current?.focus() }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-black/5 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-[#346aea]"
                       style={{ background: selected ? 'rgb(52 106 234 / 0.08)' : 'transparent', opacity: retired ? 0.58 : 1 }}>
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
                         style={{ color: retired ? '#b33a24' : selected ? '#346aea' : '#616161', background: retired ? 'rgb(211 72 43 / 0.08)' : selected ? 'rgb(52 106 234 / 0.1)' : 'rgb(0 0 0 / 0.04)' }}>
@@ -349,7 +387,7 @@ export function Sidebar({
                             <span className="shrink-0 rounded px-1 py-0.5 text-[9px]" style={{ color: '#a35a00', background: 'rgb(245 158 11 / 0.1)' }}>未配置 Key</span>
                           )}
                         </span>
-                        <span className="mt-0.5 block truncate text-[10px]" style={{ color: retired ? '#b33a24' : '#919191' }}>
+                        <span className="mt-0.5 block truncate text-[10px]" style={{ color: retired ? '#b33a24' : '#6b6b6b' }}>
                           {retired ? 'GPT-image-2 已下线' : `${provider.model || DEFAULTS.model} · ${provider.baseUrl}`}
                         </span>
                       </span>
@@ -360,52 +398,35 @@ export function Sidebar({
               </div>
             </div>
           )}
-          <div className="flex items-center gap-2 text-xs" style={{ color: '#616161' }}>
-            <button type="button" onClick={() => setProviderMenuOpen(!providerMenuOpen)} aria-expanded={providerMenuOpen}
-              className="flex h-8 min-w-0 items-center gap-2 rounded-lg border px-2.5 text-left transition-colors hover:bg-black/5"
-              style={{ maxWidth: '150px', color: '#346aea', background: providerMenuOpen ? 'rgb(52 106 234 / 0.08)' : 'rgb(52 106 234 / 0.04)', borderColor: 'rgb(52 106 234 / 0.18)' }}
-              title="快速切换供应商">
-              <FontAwesomeIcon icon={faLayerGroup} className="h-3 w-3 shrink-0" />
-              <span className="truncate font-medium">{activeProvider.name}</span>
-              <FontAwesomeIcon icon={faChevronDown} className="h-2.5 w-2.5 shrink-0 transition-transform"
-                style={{ transform: providerMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-            </button>
-            <span className="ml-auto shrink-0 text-[10px]" style={{ color: '#919191' }}>并发 {concurrency} · {outputSize}</span>
-            <button
-              onClick={() => { setProviderMenuOpen(false); onOpenConfig() }}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150"
-              style={{ color: apiKey ? '#616161' : '#d3482b', background: apiKey ? '' : 'rgb(211 72 43 / 0.1)', border: apiKey ? '' : '1px solid rgb(211 72 43 / 0.3)' }}
-              title="打开完整设置"
-            >
-              <FontAwesomeIcon icon={faGear} className={`${apiKey ? '' : 'animate-pulse'} h-3.5 w-3.5`} />
-            </button>
-          </div>
         </div>
-        <button onClick={handleSubmit} disabled={loading || !hasPrompt || !apiKey || customSizeErrors.length > 0}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-[0.97] disabled:active:scale-100"
+        <button type="button" onClick={apiKey ? handleSubmit : onOpenConfig} disabled={Boolean(apiKey && (loading || !historyReady || !hasPrompt || customSizeErrors.length > 0))}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#346aea]"
           style={{
-            background: hasPrompt && !loading && apiKey && !customSizeErrors.length ? '#346aea' : 'rgb(0 0 0 / 0.04)',
-            color: hasPrompt && !loading && apiKey && !customSizeErrors.length ? '#fff' : '#919191',
-            cursor: hasPrompt && !loading && apiKey && !customSizeErrors.length ? 'pointer' : 'not-allowed',
+            background: (!apiKey || (hasPrompt && historyReady && !loading && !customSizeErrors.length)) ? '#346aea' : 'rgb(0 0 0 / 0.04)',
+            color: (!apiKey || (hasPrompt && historyReady && !loading && !customSizeErrors.length)) ? '#fff' : '#6b6b6b',
+            cursor: (!apiKey || (hasPrompt && historyReady && !loading && !customSizeErrors.length)) ? 'pointer' : 'not-allowed',
             opacity: loading ? 0.8 : 1,
-            transform: loading ? 'scale(0.98)' : undefined,
           }}
         >
-          <FontAwesomeIcon icon={faWandMagicSparkles} className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          <span>{!apiKey ? '请先配置 API Key' : loading ? '生成中...' : '生成'}</span>
+          <FontAwesomeIcon icon={apiKey ? faWandMagicSparkles : faGear} className={`h-4 w-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />
+          <span>{!apiKey ? '配置 API Key' : loading ? '生成中…' : !historyReady ? '读取历史记录…' : '生成'}</span>
         </button>
       </div>
 
-      <UsageGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <UsageGuide open={guideOpen} onClose={() => setGuideOpen(false)} onCloseAutoFocus={() => guideTriggerRef.current?.isConnected ? guideTriggerRef.current.focus() : document.querySelector<HTMLTextAreaElement>('#generation-prompt')?.focus()} />
 
-      {previewRefUrl && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={() => setPreviewRefUrl(null)}>
-          <button onClick={() => setPreviewRefUrl(null)} className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors">
-            <FontAwesomeIcon icon={faXmark} className="h-5 w-5" />
-          </button>
-          <img src={previewRefUrl} alt="" className="max-w-full max-h-full object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
-        </div>
-      )}
+      <DialogPrimitive.Root open={Boolean(previewRefUrl)} onOpenChange={(open) => { if (!open) setPreviewRefUrl(null) }}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[70]" style={{ background: 'rgba(0,0,0,0.85)' }} />
+          <DialogPrimitive.Content aria-describedby={undefined} onCloseAutoFocus={(event) => { event.preventDefault(); if (previewTriggerRef.current?.isConnected) previewTriggerRef.current.focus(); else document.querySelector<HTMLTextAreaElement>('#generation-prompt')?.focus() }} className="fixed inset-4 z-[70] flex items-center justify-center focus:outline-none">
+            <DialogPrimitive.Title className="sr-only">参考图预览</DialogPrimitive.Title>
+            <button type="button" onClick={() => setPreviewRefUrl(null)} aria-label="关闭参考图预览" className="absolute top-0 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors focus-visible:outline-2 focus-visible:outline-white">
+              <FontAwesomeIcon icon={faXmark} className="h-5 w-5" />
+            </button>
+            {previewRefUrl && <img src={previewRefUrl} alt="放大的参考图" className="max-w-full max-h-full object-contain rounded-lg" />}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
       {configOpen && (
         <ConfigModal
@@ -418,8 +439,10 @@ export function Sidebar({
           historyCount={historyCount} localStorageUsage={localStorageUsage} imageCount={imageCount}
           showKey={showKey} setShowKey={setShowKey}
           storageUsage={storageUsage}
-          setGuideOpen={setGuideOpen}
+          setGuideOpen={(open) => { if (open) guideTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setGuideOpen(open) }}
           onClose={() => setConfigOpen(false)} onSave={onSaveConfig}
+          configSaveError={configSaveError}
+          onCloseAutoFocus={onConfigCloseAutoFocus}
         />
       )}
     </aside>
