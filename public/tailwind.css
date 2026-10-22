@@ -1003,6 +1003,9 @@
   .whitespace-nowrap {
     white-space: nowrap;
   }
+  .text-\[\#346aea\] {
+    color: #346aea;
+  }
   .text-muted-foreground {
     color: var(--color-muted-foreground);
   }
@@ -1021,6 +1024,9 @@
   }
   .underline {
     text-decoration-line: underline;
+  }
+  .underline-offset-2 {
+    text-underline-offset: 2px;
   }
   .accent-\[\#346aea\] {
     accent-color: #346aea;
@@ -1221,6 +1227,13 @@
     &:hover {
       @media (hover: hover) {
         color: #346aea;
+      }
+    }
+  }
+  .hover\:text-\[\#2251bc\] {
+    &:hover {
+      @media (hover: hover) {
+        color: #2251bc;
       }
     }
   }
