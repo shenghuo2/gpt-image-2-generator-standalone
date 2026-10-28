@@ -3,6 +3,7 @@ node_modules/
 out/
 .env*
 *.md
+!AGENTS.md
 !README.md
 !docs/speed-test.md
 
