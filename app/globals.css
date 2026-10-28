@@ -16,3 +16,9 @@ body {
   scrollbar-width: thin;
   scrollbar-color: #d8d8d8 transparent;
 }
+
+.image-checkerboard {
+  background-color: #fff;
+  background-image: conic-gradient(#e4e4e4 25%, #fff 0 50%, #e4e4e4 0 75%, #fff 0);
+  background-size: 16px 16px;
+}

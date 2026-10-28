@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { snapRatioToStandard, sizeFromRatio, validateSize, round16, type AspectRatio, type PixelTier, type Quality } from '@/lib/provider-settings'
-import { DEFAULTS, getDefaultConfig, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, isRetiredProvider, supportedActiveProviderId, type StandaloneConfig, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
+import { DEFAULTS, getDefaultConfig, loadConfig, saveConfig, getActiveProvider, getLocalStorageUsage, isRetiredProvider, supportedActiveProviderId, resolveProviderCustomSizeSupport, type StandaloneConfig, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import { generateImage, editImage } from '@/lib/api-client'
 import { saveImage, loadImages, deleteImages, saveRefImage, loadRefImage, pruneRefImages, getStorageUsage, getImageCount } from '@/lib/db'
 import { oldestImageDeletePlan, partialFailureMessage, referencedImageKeys, remainingRetryCount, runBatch } from '@/lib/generation'
@@ -315,6 +315,7 @@ export function ImageGenerator() {
       prompt: snap.prompt, quality: snap.quality,
       ratioLabel: snap.ratio !== 'auto' ? snap.ratio : undefined, size: snap.outputSize,
       providerName: activeProvider.name, type: snap.isEdit ? 'edit' : 'generate', imageCount: snap.count,
+      model: snap.model, baseUrl: snap.baseUrl,
     }))
     setHistoryPage(1)
     setJobs(prev => [...prev, ...batch])
@@ -462,8 +463,9 @@ export function ImageGenerator() {
     if (!current || !remainingRetryCount(current.images.length, current.params.count) || retryingIdsRef.current.has(item.id)) return
     if (!activeProvider.apiKey.trim()) { setStorageIssue('请先在设置中填写当前供应商的 API Key'); return }
     const previousProvider = current.params.provider
+    const model = previousProvider?.model || activeProvider.model
     if (previousProvider?.baseUrl && previousProvider.baseUrl !== activeProvider.baseUrl &&
-        !window.confirm(`原记录使用 ${previousProvider.providerName}。现在将用 ${activeProvider.name} 重试，是否继续？`)) return
+        !window.confirm(`原记录使用 ${previousProvider.providerName}。现在将用 ${activeProvider.name} 的 ${model} 重试，是否继续？`)) return
     retryingIdsRef.current.add(item.id)
     const jobId = `${item.id}:${makeId()}`
     const estimateSeconds = DEFAULTS.defaultEstimateSeconds + (item.params.pixelTier === '2k' ? 30 : item.params.pixelTier === '4k' ? 60 : 0)
@@ -479,6 +481,7 @@ export function ImageGenerator() {
       providerName: activeProvider.name,
       type: item.type,
       imageCount: item.params.count,
+      model, baseUrl: activeProvider.baseUrl,
     }
 
     setJobs(prev => [...prev, job])
@@ -487,7 +490,7 @@ export function ImageGenerator() {
       const startedAt = Date.now()
       updateJob(jobId, { status: 'running', startedAt, error: undefined })
       try {
-        const auth = { apiKey: activeProvider.apiKey, baseUrl: activeProvider.baseUrl, model: activeProvider.model, supportsResponseFormat: activeProvider.supportsResponseFormat }
+        const auth = { apiKey: activeProvider.apiKey, baseUrl: activeProvider.baseUrl, model, supportsResponseFormat: activeProvider.supportsResponseFormat }
         const size = item.params.size || outputSize
         const url = item.type === 'edit'
           ? await editImage(auth, { prompt: item.prompt, quality: item.params.quality, size, images: await loadHistoryRefFiles(item) })
@@ -533,7 +536,7 @@ export function ImageGenerator() {
         count: job.imageCount || 1,
         pixelTier,
         size: job.size || outputSize,
-        provider: { providerName: job.providerName || activeProvider.name, model: activeProvider.model || DEFAULTS.model, baseUrl: activeProvider.baseUrl },
+        provider: { providerName: job.providerName || activeProvider.name, model: job.model || activeProvider.model || DEFAULTS.model, baseUrl: job.baseUrl || activeProvider.baseUrl },
       },
       images: [],
       error: job.error,
@@ -725,6 +728,20 @@ export function ImageGenerator() {
     setLocalStorageUsage(getLocalStorageUsage())
   }
 
+  const handleModelChange = (value: string) => {
+    const model = value.trim()
+    if (!model) return false
+    const updated = providers.map(provider => provider.id === activeProvider.id ? {
+      ...provider, model,
+      supportsCustomSize: resolveProviderCustomSizeSupport(provider.id, model, provider.supportsCustomSize),
+    } : provider)
+    try { saveConfig({ providers: updated, activeProviderId, maxStorageMB, maxHistoryItems, multiImageLayout }) }
+    catch { setStorageIssue('模型切换未能保存，请检查浏览器本地存储空间'); return false }
+    setProviders(updated)
+    setLocalStorageUsage(getLocalStorageUsage())
+    return true
+  }
+
   const handleOpenConfig = () => {
     configTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setConfigSaveError('')
@@ -813,6 +830,7 @@ export function ImageGenerator() {
           setPrompt={setPrompt} setRatio={setRatio}
           setQuality={setQuality} setCount={setCount}
           setPixelTier={setPixelTier}
+          onReuseModel={handleModelChange}
           warnings={warnings}
           searchQuery={searchQuery} onClearSearch={() => handleSearchChange('')}
           multiImageLayout={multiImageLayout}

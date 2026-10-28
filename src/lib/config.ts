@@ -1,5 +1,5 @@
 const DEFAULTS = {
-  model: 'gpt-image-2',
+  model: 'gpt-image-2.5-sunburst',
   generatePath: '/v1/images/generations',
   editPath: '/v1/images/edits',
   defaultQuality: 'medium' as const,
@@ -30,11 +30,12 @@ export interface StandaloneConfig {
 }
 
 export const BUILTIN_PROVIDERS: ProviderEntry[] = [
-  { id: 'yunwu', name: 'YunWu', model: DEFAULTS.model, apiKey: '', baseUrl: 'https://yunwu.ai', supportsResponseFormat: false, supportsCustomSize: true, maxConcurrency: 2 },
-  { id: 'gptgod', name: 'GPTGod', model: DEFAULTS.model, apiKey: '', baseUrl: 'https://new.gptgod.cloud', supportsResponseFormat: true, supportsCustomSize: false, maxConcurrency: 5 },
+  { id: 'openlux', name: 'OpenLux', model: DEFAULTS.model, apiKey: '', baseUrl: 'https://api.openlux.ai', supportsResponseFormat: true, supportsCustomSize: true, maxConcurrency: 2 },
+  { id: 'yunwu', name: 'YunWu', model: 'gpt-image-2', apiKey: '', baseUrl: 'https://yunwu.ai', supportsResponseFormat: false, supportsCustomSize: true, maxConcurrency: 2 },
+  { id: 'gptgod', name: 'GPTGod', model: 'gpt-image-2.5', apiKey: '', baseUrl: 'https://new.gptgod.cloud', supportsResponseFormat: true, supportsCustomSize: false, maxConcurrency: 5 },
   // Kept only so existing browser configs can be migrated without losing their Key.
   // New users never receive this retired provider in getDefaultConfig().
-  { id: 'nowcoding', name: 'NowCoding', model: DEFAULTS.model, apiKey: '', baseUrl: 'https://nowcoding.ai', supportsResponseFormat: true, supportsCustomSize: false, maxConcurrency: 1 },
+  { id: 'nowcoding', name: 'NowCoding', model: 'gpt-image-2', apiKey: '', baseUrl: 'https://nowcoding.ai', supportsResponseFormat: true, supportsCustomSize: false, maxConcurrency: 1 },
 ]
 
 const CUSTOM_PROVIDER_ID = '__custom__'
@@ -42,6 +43,39 @@ const RETIRED_PROVIDER_IDS = new Set(['nowcoding'])
 export const GPTGOD_CUSTOM_SIZE_MODEL = 'gpt-image-2-vip'
 
 export const RETIRED_PROVIDER_MESSAGE = 'NowCoding 已下线 GPT-image-2 模型，请切换到其他供应商。'
+
+export function getProviderNotice(provider: Pick<ProviderEntry, 'id'> | string) {
+  const id = typeof provider === 'string' ? provider : provider.id
+  if (id === 'yunwu') return {
+    label: '建议迁移至 OpenLux',
+    message: 'YunWu 官方邮件通知 10 月 16 日关站，目前暂保留可选。建议改用海外站 OpenLux，并在其控制台创建独立 API Key；原 YunWu 配置和 Key 会继续保留。',
+  }
+  if (id === 'nowcoding') return { label: 'GPT-image-2 已下线', message: RETIRED_PROVIDER_MESSAGE }
+  return undefined
+}
+
+export const IMAGE_MODEL_PRESETS = [
+  { id: 'gpt-image-2.5-sunburst', description: '同系列高精度版本，细节与提示词还原更强，面向精品商业图像创作。', perImageBilling: false },
+  { id: 'gpt-image-2.5-flare', description: '均衡、低延迟的通用图像生成模型，适合批量快速出图。', perImageBilling: false },
+  { id: 'gpt-image-2.5-sunburst-c', description: 'OpenLux 的 Sunburst 按次计费版本，适合精品商业图像；默认支持 1K，Gpt-Image-2/3 分组支持 1K、2K、4K，以令牌分组为准。', perImageBilling: true },
+  { id: 'gpt-image-2.5-flare-c', description: 'OpenLux 的 Flare 按次计费版本，适合批量快速出图；默认支持 1K，Gpt-Image-2/3 分组支持 1K、2K、4K，以令牌分组为准。', perImageBilling: true },
+  { id: 'gpt-image-2.5', description: 'GPT Image 2.5 通用图像模型；可在提示词中要求透明背景，实际格式与透明层以渠道返回为准。', perImageBilling: false },
+  { id: 'gpt-image-2.5-vip', description: 'GPTGod 模型广场列出的 2.5 VIP 型号；不等同于 gpt-image-2-vip，分组和尺寸能力请先向供应商确认。', perImageBilling: false },
+  { id: 'gpt-image-2', description: 'GPT Image 2 图像模型。', perImageBilling: false },
+  { id: 'gpt-image-2-vip', description: 'GPTGod 自定义尺寸模型，需配合供应商指定分组。', perImageBilling: false },
+] as const
+
+export function getImageModelPreset(model: string) {
+  return IMAGE_MODEL_PRESETS.find(preset => preset.id === model.trim())
+}
+
+// Exact allowlist: model discovery must never add unrelated text models.
+export function parseImageModelList(response: unknown): string[] {
+  const data = (response as { data?: unknown } | null)?.data
+  if (!Array.isArray(data)) throw new Error('供应商返回的模型列表格式无效')
+  const available = new Set(data.flatMap(entry => typeof entry?.id === 'string' ? [entry.id] : []))
+  return IMAGE_MODEL_PRESETS.filter(model => available.has(model.id)).map(model => model.id)
+}
 
 export function isBuiltinProvider(provider: Pick<ProviderEntry, 'id'> | string) {
   const id = typeof provider === 'string' ? provider : provider.id
@@ -92,12 +126,14 @@ function isLegacyConfig(raw: Record<string, unknown>): boolean {
 function migrateLegacy(raw: Record<string, unknown>): StandaloneConfig {
   const cfg = getDefaultConfig()
   const apiKey = typeof raw.apiKey === 'string' ? raw.apiKey : ''
-  const model = typeof raw.model === 'string' && raw.model.trim() ? raw.model.trim() : DEFAULTS.model
-  const baseUrl = typeof raw.baseUrl === 'string' ? raw.baseUrl : cfg.providers[0].baseUrl
+  // Legacy configurations defaulted to YunWu; keep their Key on that provider.
+  const baseUrl = typeof raw.baseUrl === 'string' ? raw.baseUrl : 'https://yunwu.ai'
   const maxStorageMB = typeof raw.maxStorageMB === 'number' ? raw.maxStorageMB : 500
 
   // Try to match the old baseUrl to a built-in provider
-  const matched = BUILTIN_PROVIDERS.find(p => p.baseUrl === baseUrl.replace(/\/+$/, ''))
+  const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, '').replace(/\/v1$/i, '')
+  const matched = BUILTIN_PROVIDERS.find(p => p.baseUrl === normalizedBaseUrl)
+  const model = typeof raw.model === 'string' && raw.model.trim() ? raw.model.trim() : matched?.model || DEFAULTS.model
   if (matched) {
     const migratedProvider = mergeBuiltinProvider(matched, { apiKey, model })
     if (cfg.providers.some(p => p.id === matched.id)) {

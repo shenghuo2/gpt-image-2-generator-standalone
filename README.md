@@ -34,8 +34,10 @@ GPT-image-2 模型生图效果很棒，但 ChatGPT 网站版不提供分辨率�
 ## 特性
 
 - **纯前端** — 零服务端依赖，请求从浏览器直接发出
-- **多供应商** — 预置 YunWu / GPTGod，支持自定义，老配置自动迁移不丢失
-- **独立模型 ID** — 每个供应商可单独设置模型名称，兼容中转站的自定义模型 ID
+- **多供应商** — 首选 OpenLux，保留 YunWu / GPTGod，支持自定义，老配置自动迁移不丢失
+- **多模型切换** — 在设置的「供应商配置」中通过 `/v1/models` 同步白名单内的图像模型，支持手动填写模型 ID；接口失败或列表为空时不提供预设选项，保存设置后生效
+- **独立模型 ID** — 每个供应商独立保存模型；默认 `gpt-image-2.5-sunburst`，GPTGod 默认 `gpt-image-2.5`
+- **透明图片预览** — 生成图、历史预览和参考图以棋盘格底纹显示透明区域，下载保留原图透明层；需要透明背景时请在提示词中说明
 - **本地配置** — API Key 仅存 localStorage，各供应商独立存储切换
 - **文生图 / 图生图** — 参考图片支持粘贴、拖拽、文件选择，最多 16 张
 - **多图并发** — 可配置生成数量与并发数（最多 3 并发）
@@ -52,17 +54,39 @@ GPT-image-2 模型生图效果很棒，但 ChatGPT 网站版不提供分辨率�
 
 | 设置项 | 说明 |
 |------|------|
-| 供应商 | 预置 YunWu / GPTGod，支持自定义添加 |
+| 供应商 | 首选 OpenLux，保留 YunWu / GPTGod，支持自定义添加 |
 | API Key | 各供应商独立存储，切换自动切换密钥 |
-| 模型 ID | 各供应商独立配置，默认 `gpt-image-2` |
+| 模型 ID | 各供应商独立配置，默认 `gpt-image-2.5-sunburst`；GPTGod 默认 `gpt-image-2.5`，保留已保存的模型 |
 | Base URL | 内置供应商固定地址，自定义可自由填写 |
 | 存储上限 | 默认 500MB，IndexedDB 图片留存上限 |
 
-> 默认首选 **YunWu**（yunwu.ai）：接入 Azure API 渠道，不改动提示词，可使用完整的自定义分辨率能力，包括 4K。高峰期可能返回 429，建议配合重试。注册链接：[带邀请码](https://yunwu.ai/register?aff=HE7h) / [无邀请码](https://yunwu.ai/register)。YunWu 不支持 `response_format` 参数，切换后会自动关闭。
+> 默认首选 **OpenLux**（openlux.ai）：API 地址为 `https://api.openlux.ai`。注册链接：[带邀请码](https://www.openlux.ai/register?aff=o3QY) / [无邀请码](https://www.openlux.ai/register)。YunWu 官方邮件通知 10 月 16 日关站，本站暂保留可选并提示迁移。原有 YunWu 配置、模型和 Key 会继续保留；请在 OpenLux 创建独立 API Key。
 >
 > 低价优先也可选择 **GPTGod**（new.gptgod.cloud）：最低约 `¥0.02/张`，最低充值金额为 `¥10`。普通模型仅支持标准尺寸；如需自定义分辨率，请将模型 ID 填为 `gpt-image-2-vip`，并在 GPTGod 控制台切换到公告指定的分组。完成两项配置后应可使用自定义分辨率；具体分组、可用性与计费请以中转站最新公告为准。
 >
+> GPTGod 默认使用 `gpt-image-2.5`。其模型广场另有 `gpt-image-2.5-flare` 和 `gpt-image-2.5-vip`，三者均按次计费；「标准」与「充值」价格口径不同，请结合令牌分组核算。`gpt-image-2.5-vip` 与旧版 `gpt-image-2-vip` 是不同型号，本站不会据此自动开放自定义尺寸。
+>
 > 升级前已保存的 NowCoding 配置会继续保留并标注“已下线”，以免丢失本地 Key；新用户不再显示该供应商。
+
+### 图像模型
+
+| 模型 ID | 用途 |
+|------|------|
+| `gpt-image-2.5-sunburst` | 高精度，细节与提示词还原更强，面向精品商业图像；OpenLux 按量计费 |
+| `gpt-image-2.5-flare` | 均衡、低延迟，适合批量快速出图；OpenLux 按量计费，GPTGod 按次计费 |
+| `gpt-image-2.5-sunburst-c` | OpenLux Sunburst 按次计费版本 |
+| `gpt-image-2.5-flare-c` | OpenLux Flare 按次计费版本 |
+| `gpt-image-2.5` | 2.5 通用版本，GPTGod 新配置默认使用，按次计费 |
+| `gpt-image-2.5-vip` | GPTGod 2.5 VIP 型号，按次计费；分组、尺寸能力需向供应商确认 |
+| `gpt-image-2` / `gpt-image-2-vip` | 兼容原有模型与 GPTGod 自定义尺寸渠道 |
+
+模型选择位于设置的「供应商配置」中，下拉仅展示 `/v1/models` 实际返回、且在上述白名单内的模型，不展示文本模型。没有 Key、正在加载、请求失败或白名单结果为空时，保留当前配置并提供手动模型 ID 输入，不推测供应商支持哪些模型。修改模型后点击「保存」生效。
+
+上述模型描述与计费方式依据 [OpenLux 模型广场](https://www.openlux.ai/console/models?view=table&keyword=ge-2.5) 和 [GPTGod 模型广场](https://new.gptgod.cloud/pricing) 于 **2026-10-28** 核对，属于供应商渠道说明。OpenLux 的两个 `-c` 型号说明默认支持 1K，`Gpt-Image-2/3` 分组支持 1K、2K、4K；分辨率和价格需结合实际令牌分组确认。同名模型在不同供应商的计费方式可能不同，不应仅凭 `-c` 后缀判断。
+
+需要透明背景时，请在提示词中说明；图生图也应重新说明保留透明背景，实际格式与透明层取决于渠道返回。本站不额外发送 `background`、`format` 或 `output_format` 参数，以兼容不同中转站；图片显示时使用棋盘格底纹，下载保留供应商返回的原图和透明层。
+
+请求尺寸可能与供应商实际出图尺寸不同，请在预览中查看「实际」尺寸。2026-10-28 的 GPTGod 实测中，`gpt-image-2.5` 请求 `1024x1024` 返回 `1254x1254`；Flare 的横图请求 `1536x1024`，提示词要求 16:9，实际返回 `1672x941`。这是本次渠道结果，不代表其他渠道也有相同行为。
 
 ## 尺寸参考
 

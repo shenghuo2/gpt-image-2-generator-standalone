@@ -46,6 +46,6 @@ test('a retired provider cannot remain active after configuration migration', ()
     ...getDefaultConfig().providers,
     { id: 'nowcoding', name: 'NowCoding', apiKey: 'old-key' },
   ]
-  assert.equal(supportedActiveProviderId(providers, 'nowcoding'), 'yunwu')
-  assert.equal(providers[2].apiKey, 'old-key')
+  assert.equal(supportedActiveProviderId(providers, 'nowcoding'), 'openlux')
+  assert.equal(providers.find(provider => provider.id === 'nowcoding').apiKey, 'old-key')
 })

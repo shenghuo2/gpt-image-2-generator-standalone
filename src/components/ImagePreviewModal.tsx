@@ -151,7 +151,7 @@ export function ImagePreviewModal({ item, initialImageIndex = 0, onClose, onClos
               <img
                 src={img}
                 alt={item.prompt}
-                className="max-h-full max-w-full object-contain"
+                className="image-checkerboard max-h-full max-w-full object-contain"
                 onLoad={(e) => setActualSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
               />
               {item.images.length > 1 && (
@@ -186,7 +186,7 @@ export function ImagePreviewModal({ item, initialImageIndex = 0, onClose, onClos
                 <div className="flex flex-wrap gap-2">
                   {item.refImages.map((refUrl, i) => (
                     <button key={i} type="button" aria-label={`预览参考图 ${i + 1}`} onClick={(event) => { refPreviewTriggerRef.current = event.currentTarget; setPreviewRef(refUrl) }} className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border transition-colors hover:border-[#346aea] focus-visible:outline-2 focus-visible:outline-[#346aea]" style={{ borderColor: 'rgb(0 0 0 / 0.1)' }}>
-                      <img src={refUrl} alt={`参考图 ${i + 1}`} className="h-full w-full object-cover" />
+                      <img src={refUrl} alt={`参考图 ${i + 1}`} className="image-checkerboard h-full w-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -208,7 +208,7 @@ export function ImagePreviewModal({ item, initialImageIndex = 0, onClose, onClos
           <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-black/80" />
           <DialogPrimitive.Content aria-describedby={undefined} onCloseAutoFocus={(event) => { event.preventDefault(); if (refPreviewTriggerRef.current?.isConnected) refPreviewTriggerRef.current.focus() }} className="fixed inset-6 z-[60] flex items-center justify-center focus:outline-none">
             <DialogPrimitive.Title className="sr-only">参考图预览</DialogPrimitive.Title>
-            {previewRef && <img src={previewRef} alt="放大的参考图" className="max-h-[90vh] max-w-full rounded-lg object-contain" />}
+            {previewRef && <img src={previewRef} alt="放大的参考图" className="image-checkerboard max-h-[90vh] max-w-full rounded-lg object-contain" />}
             <button type="button" aria-label="关闭参考图预览" onClick={() => setPreviewRef(null)} className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white" style={{ color: '#fff' }}>
               <FontAwesomeIcon icon={faXmark} className="h-5 w-5" />
             </button>

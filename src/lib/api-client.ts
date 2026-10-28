@@ -1,4 +1,4 @@
-import { DEFAULTS } from './config'
+import { DEFAULTS, parseImageModelList } from './config'
 
 interface ApiAuth { apiKey: string; baseUrl: string; model?: string; supportsResponseFormat?: boolean }
 
@@ -24,6 +24,14 @@ function extractImageUrl(data: Record<string, unknown>) {
   if (image.b64_json) return b64ToBlobUrl(image.b64_json)
   if (image.url) return image.url
   throw new Error('供应商没有返回图片')
+}
+
+export async function fetchImageModels(auth: ApiAuth, signal?: AbortSignal) {
+  const resp = await fetch(`${normalizeBaseUrl(auth.baseUrl)}/v1/models`, {
+    headers: { Authorization: `Bearer ${auth.apiKey}` }, signal,
+  })
+  if (!resp.ok) throw new Error(`获取模型列表失败（HTTP ${resp.status}）`)
+  return parseImageModelList(await resp.json())
 }
 
 export async function generateImage(auth: ApiAuth, params: { prompt: string; quality: string; size: string }) {

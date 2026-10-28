@@ -34,6 +34,7 @@ interface Props {
   setQuality: (v: Quality) => void
   setCount: (v: number) => void
   setPixelTier: (v: PixelTier) => void
+  onReuseModel: (model: string) => void
   warnings: WarningItem[]
   searchQuery: string
   onClearSearch: () => void
@@ -42,7 +43,7 @@ interface Props {
   onOpenConfig: () => void
 }
 
-export function MainArea({ jobs, visibleHistory, historyPage, historyPageCount, totalHistoryCount, onHistoryPageChange, preview, onPreviewChange, deleteHistoryItem, retryJob, retryHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, warnings, searchQuery, onClearSearch, multiImageLayout, onDeleteOldestImages, onOpenConfig }: Props) {
+export function MainArea({ jobs, visibleHistory, historyPage, historyPageCount, totalHistoryCount, onHistoryPageChange, preview, onPreviewChange, deleteHistoryItem, retryJob, retryHistoryItem, addFiles, clearRefs, setPrompt, setRatio, setQuality, setCount, setPixelTier, onReuseModel, warnings, searchQuery, onClearSearch, multiImageLayout, onDeleteOldestImages, onOpenConfig }: Props) {
   const [previewImageIndex, setPreviewImageIndex] = useState(0)
   const previewTriggerRef = useRef<HTMLElement | null>(null)
   const resultsScrollRef = useRef<HTMLDivElement | null>(null)
@@ -115,6 +116,7 @@ export function MainArea({ jobs, visibleHistory, historyPage, historyPageCount, 
           setRatio(item.params.ratio)
           setQuality(item.params.quality)
           setCount(item.params.count)
+          if (item.params.provider?.model) onReuseModel(item.params.provider.model)
           if (item.params.pixelTier) setPixelTier(item.params.pixelTier)
           if (item.refImageKeys?.length) {
             clearRefs()

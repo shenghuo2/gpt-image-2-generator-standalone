@@ -3,8 +3,9 @@ import { useRef, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faEye, faEyeSlash, faGear, faKey, faPlus, faXmark, faCircleQuestion, faTriangleExclamation, faChevronDown } from '@fortawesome/free-solid-svg-icons'
-import { DEFAULTS, GPTGOD_CUSTOM_SIZE_MODEL, isBuiltinProvider, isRetiredProvider, resolveProviderCustomSizeSupport, RETIRED_PROVIDER_MESSAGE, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
+import { DEFAULTS, GPTGOD_CUSTOM_SIZE_MODEL, getProviderNotice, isBuiltinProvider, isRetiredProvider, resolveProviderCustomSizeSupport, RETIRED_PROVIDER_MESSAGE, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+import { ImageModelSelector } from './ImageModelSelector'
 
 interface Props {
   activeProvider: ProviderEntry
@@ -28,7 +29,7 @@ function scrollIntoView(e: React.FocusEvent<HTMLInputElement>) {
 
 export function ConfigModal({ activeProvider, draftProviders, setDraftProviders, draftActiveId, setDraftActiveId, draftMaxStorageMB, setDraftMaxStorageMB, draftMaxHistoryItems, setDraftMaxHistoryItems, draftMultiImageLayout, setDraftMultiImageLayout, historyCount, localStorageUsage, imageCount, showKey, setShowKey, storageUsage, setGuideOpen, onClose, onSave, configSaveError, onCloseAutoFocus }: Props) {
   const [settingsTab, setSettingsTab] = useState<'providers' | 'preferences'>('providers')
-  const [fieldError, setFieldError] = useState<{ providerId: string; field: 'name' | 'baseUrl'; message: string } | null>(null)
+  const [fieldError, setFieldError] = useState<{ providerId: string; field: 'name' | 'baseUrl' | 'model'; message: string } | null>(null)
   const selectedProvider = draftProviders.find(p => p.id === draftActiveId)
   const [advancedOpen, setAdvancedOpen] = useState(true)
   const apiKey = selectedProvider?.apiKey ?? activeProvider.apiKey
@@ -40,13 +41,15 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
   }
   const saveDraft = () => {
     for (const provider of draftProviders) {
-      if (isBuiltinProvider(provider)) continue
-      let field: 'name' | 'baseUrl' | null = null
+      let field: 'name' | 'baseUrl' | 'model' | null = null
       let message = ''
-      if (!provider.name.trim()) {
+      if (!provider.model.trim() || /\s/.test(provider.model.trim())) {
+        field = 'model'
+        message = '请填写完整的模型 ID，不能包含空格或换行。'
+      } else if (!isBuiltinProvider(provider) && !provider.name.trim()) {
         field = 'name'
         message = '请填写供应商名称'
-      } else {
+      } else if (!isBuiltinProvider(provider)) {
         try {
           const url = new URL(provider.baseUrl.trim())
           if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('invalid URL')
@@ -172,8 +175,9 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
             const dp = draftProviders.find(p => p.id === draftActiveId)
             if (!dp) return null
             const isBuiltin = isBuiltinProvider(dp)
-            const isRetired = isRetiredProvider(dp)
+            const notice = getProviderNotice(dp)
             const updateModel = (value: string) => {
+              setFieldError(null)
               setDraftProviders(draftProviders.map(p => p.id === dp.id ? {
                 ...p,
                 model: value,
@@ -182,11 +186,11 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
             }
             return (
               <>
-                {isRetired && (
+                {notice && (
                   <div className="flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs" role="alert"
                     style={{ color: '#b33a24', background: 'rgb(211 72 43 / 0.06)', borderColor: 'rgb(211 72 43 / 0.22)' }}>
                     <FontAwesomeIcon icon={faTriangleExclamation} className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>{RETIRED_PROVIDER_MESSAGE}</span>
+                    <span>{notice.message}{dp.id === 'yunwu' && <>{' '}<a href="https://openlux.ai/" target="_blank" rel="noopener noreferrer" className="underline rounded focus-visible:outline-2 focus-visible:outline-[#346aea]" style={{ color: '#2251bc' }}>前往 OpenLux 创建 API Key ↗</a></>}</span>
                   </div>
                 )}
                 {!isBuiltin && (
@@ -211,17 +215,14 @@ export function ConfigModal({ activeProvider, draftProviders, setDraftProviders,
                     </button>
                   </div>
                 </div>
-                <label className="block">
-                  <span className="mb-2 block text-xs font-semibold" style={{ color: '#616161' }}>模型 ID</span>
-                  <input value={dp.model || ''} onChange={(e) => updateModel(e.target.value)} onBlur={(e) => updateModel(e.target.value.trim() || DEFAULTS.model)} onFocus={scrollIntoView}
-                    className="w-full h-10 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[#346aea]/20 transition-colors"
-                    style={{ background: '#fff', borderColor: 'rgb(0 0 0 / 0.15)', color: '#1a1a1a' }} placeholder={DEFAULTS.model} />
+                <div>
+                  <ImageModelSelector key={dp.id} provider={dp} onChange={updateModel} error={fieldError?.providerId === dp.id && fieldError.field === 'model' ? fieldError.message : undefined} />
                   {dp.id === 'gptgod' && (
                     <span className="mt-1.5 block text-[10px]" style={{ color: dp.supportsCustomSize ? '#20733a' : '#6b6b6b' }}>
                       填入 {GPTGOD_CUSTOM_SIZE_MODEL} 后，本站会开放自定义尺寸选项；还需在 GPTGod 控制台切换到公告指定分组，实际可用性以最新公告为准{dp.supportsCustomSize ? ' · 本站已开启' : ''}
                     </span>
                   )}
-                </label>
+                </div>
                 {isBuiltin ? (
                   <p className="text-[11px]" style={{ color: '#6b6b6b' }}>
                     Base URL：{dp.baseUrl}{!dp.supportsResponseFormat && ' · 不支持 response_format 参数'}{!dp.supportsCustomSize && ' · 仅支持标准图片尺寸'}

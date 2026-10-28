@@ -8,7 +8,7 @@ import {
   faXmark, faLayerGroup, faCheck, faTriangleExclamation, faArrowLeft, faArrowRight,
 } from '@fortawesome/free-solid-svg-icons'
 import { RATIO_OPTIONS, round16, availableTiersFor, type PixelTier, type Quality } from '@/lib/provider-settings'
-import { DEFAULTS, isRetiredProvider, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
+import { DEFAULTS, getProviderNotice, isRetiredProvider, type ProviderEntry, type MultiImageLayout } from '@/lib/config'
 import type { RefItem } from '@/lib/types'
 import { UsageGuide } from './UsageGuide'
 import { ConfigModal } from './ConfigModal'
@@ -185,7 +185,7 @@ export function Sidebar({
                   style={{ background: '#ececec', borderColor: 'rgb(0 0 0 / 0.08)' }}
                 >
                   <button type="button" onClick={(event) => { previewTriggerRef.current = event.currentTarget; setPreviewRefUrl(item.url) }} aria-label={`预览参考图 ${idx + 1}`} className="block h-full w-full focus-visible:outline-2 focus-visible:outline-[#346aea]">
-                    <img src={item.url} alt={`参考图 ${idx + 1}`} className="h-full w-full object-cover pointer-events-none" />
+                    <img src={item.url} alt={`参考图 ${idx + 1}`} className="image-checkerboard h-full w-full object-cover pointer-events-none" />
                   </button>
                   <button type="button" onClick={() => removeRef(item.id)} aria-label={`移除参考图 ${idx + 1}`} className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white focus-visible:outline-2 focus-visible:outline-[#346aea]">
                     <FontAwesomeIcon icon={faXmark} className="h-3 w-3" />
@@ -388,7 +388,7 @@ export function Sidebar({
                           )}
                         </span>
                         <span className="mt-0.5 block truncate text-[10px]" style={{ color: retired ? '#b33a24' : '#6b6b6b' }}>
-                          {retired ? 'GPT-image-2 已下线' : `${provider.model || DEFAULTS.model} · ${provider.baseUrl}`}
+                          {getProviderNotice(provider)?.label || `${provider.model || DEFAULTS.model} · ${provider.baseUrl}`}
                         </span>
                       </span>
                       {selected && !retired && <FontAwesomeIcon icon={faCheck} className="h-3 w-3 shrink-0" style={{ color: '#346aea' }} />}
@@ -423,7 +423,7 @@ export function Sidebar({
             <button type="button" onClick={() => setPreviewRefUrl(null)} aria-label="关闭参考图预览" className="absolute top-0 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors focus-visible:outline-2 focus-visible:outline-white">
               <FontAwesomeIcon icon={faXmark} className="h-5 w-5" />
             </button>
-            {previewRefUrl && <img src={previewRefUrl} alt="放大的参考图" className="max-w-full max-h-full object-contain rounded-lg" />}
+            {previewRefUrl && <img src={previewRefUrl} alt="放大的参考图" className="image-checkerboard max-w-full max-h-full object-contain rounded-lg" />}
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>

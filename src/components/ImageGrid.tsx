@@ -19,6 +19,8 @@ export type ImageJob = {
   ratioLabel?: string
   size?: string
   providerName?: string
+  model?: string
+  baseUrl?: string
   type?: 'generate' | 'edit'
   imageCount?: number
 }
@@ -163,7 +165,7 @@ export function ImageGrid({ jobs, onRetryJob, onRetryHistory, onCardClick, onDel
       })}
       {successJobs.map((job) => (
         <div key={job.id} className="overflow-hidden rounded-xl border" style={{ borderColor: 'rgb(0 0 0 / 0.1)', background: '#fff' }}>
-          <img loading="lazy" src={job.url || ''} alt={job.prompt || '生成的图片'} style={{ width: '100%', height: 'auto', minHeight: 120, display: 'block', background: '#f5f5f5' }} />
+          <img loading="lazy" src={job.url || ''} alt={job.prompt || '生成的图片'} className="image-checkerboard" style={{ width: '100%', height: 'auto', minHeight: 120, display: 'block' }} />
           <div className="p-2.5 flex items-center justify-end" style={{ background: '#fafafa' }}>
             <span className="text-[10px]" style={{ color: '#6b6b6b' }}>生成成功</span>
           </div>
@@ -204,9 +206,10 @@ export function ImageGrid({ jobs, onRetryJob, onRetryHistory, onCardClick, onDel
                       loading="lazy"
                       src={url}
                       alt={item.prompt}
+                      className="image-checkerboard"
                       style={horizontal
-                        ? { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', background: '#f5f5f5', objectFit: 'contain' }
-                        : { width: '100%', height: 'auto', minHeight: 120, display: 'block', background: '#f5f5f5' }}
+                        ? { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', objectFit: 'contain' }
+                        : { width: '100%', height: 'auto', minHeight: 120, display: 'block' }}
                     />
                   </button>
                 ))}
